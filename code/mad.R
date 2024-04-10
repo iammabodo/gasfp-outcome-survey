@@ -6,11 +6,12 @@ library(expss)
 data <- read_csv("~/GitHub/RAMResourcesScripts/Static/Nut_MAD_Sample_Survey/MAD_submodule_RepeatMAD.csv")
 
 #can only download repeat csv data as zip file from moda with group names - will update this code with more elegant solution to remove group names or if you download as SPSS you can skip this step
-#rename to remove group names
+#rename to remove group names 
+#This is the standard module from RAM-need to replace this to suit our questionnaire
 data <- data %>% rename(PCMADChildAge_months = 'MAD_submodule/RepeatMAD/PCMADChildAge_months',
-                        PCMADBreastfeed = 'MAD_submodule/RepeatMAD/PCMADBreastfeed',
-                        PCMADInfFormula = 'MAD_submodule/RepeatMAD/PCMADInfFormula',
-                        PCMADInfFormulaNum = 'MAD_submodule/RepeatMAD/PCMADInfFormulaNum',
+                        PCMADBreastfeed = IYCF_4,
+                        PCMADInfFormula = IYCF_5,
+                        PCMADInfFormulaNum = 'MAD_submodule/RepeatMAD/PCMADInfFormula',
                         PCMADMilk = 'MAD_submodule/RepeatMAD/PCMADMilk',
                         PCMADMilkNum = 'MAD_submodule/RepeatMAD/PCMADMilkNum',
                         PCMADYogurtDrink = 'MAD_submodule/RepeatMAD/PCMADYogurtDrink',
@@ -72,7 +73,7 @@ data <- data %>%
 
 #Creat Minimum Dietary Diversity 6-23 months (MDD)
 # for population assesments - SNF is counted in cereals group (MDD)
-# for WFP programme monitoring - SNF is counted in meats group (MDD_wfp)
+# for WFP programme monitoring - SNF is counted in meats group (MDD_WFP)
 
 #this version is for population assessments - SNF is counted in cereals group
 data <- data %>% mutate(
