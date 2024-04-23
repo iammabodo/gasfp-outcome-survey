@@ -8,7 +8,7 @@ library(readxl)
 
 
 # Source the functions.R file
-source("~/Work 2023 -Eltone/General M&E/GASFP Project/gasfp-outcome-survey/code/functions.R")
+#source("~/Work 2023 -Eltone/General M&E/GASFP Project/gasfp-outcome-survey/code/functions.R")
 
 # Defining the Minimum Expenditure Basket (MEB) -----------------------------------
 MEB <- 375158 # This is the new MEB for Cambodia. We might need to use the previous MEB for comparison.
