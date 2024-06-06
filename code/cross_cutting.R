@@ -3,104 +3,160 @@ library(expss)
 library(labelled)
 
 
-#CC-1.1: Beneficiaries reporting safety concerns 
 
-#Load Data set
-data <- read_csv("~/GitHub/RAMResourcesScripts/Static/PROP_AAP_CRF_Sample_Survey.csv")
+# Import data for the calculation of all cross cutting indicators
 
-#assign variable and value labels
+CrossCuttingData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
+  select(HHID, HHHSex, HHHEthnicity, HHList, HHHLanguage, IDPoor, HHBaseline, # Disagregation variables
+         starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity"))
+
+
+# Calculate CC-1.1: Beneficiaries reporting safety concerns 
+SafetyConcerns <- CrossCuttingData %>% 
+  # Select the necessary variables for this analysis
+  select(HHID, HHAsstSecurity, IDPoor, HHHSex) %>% 
+  # Mutate the key variable (HHAsstSecurity) to have meaningful labels
+  mutate(HHAsstSecurity = case_when(
+    HHAsstSecurity == 0 ~ "No",
+    HHAsstSecurity == 1 ~ "Yes"))
+
+# Calculate the percentage of beneficiaries reporting safety concerns
+SafetyConcerns %>% 
+  group_by(HHAsstSecurity) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
+
+# assign variable and value labels
 var_label(data$HHAsstSecurity) <- "Have you or any of your household members experienced any security challenge related to WFP assistance?"
-val_lab(data$HHAsstSecurity) = num_lab("
-             0 No
-             1 Yes
-             888 Don't know
-")
 
 
-#creates a table of the weighted percentage of HHAsstSecurity by
-#creating a temporary variable to display value labels 
-#and providing the option to use weights if needed
 
 
-HHAsstSecurity_table_wide <- data %>% 
-  drop_na(HHAsstSecurity) %>%
-  count(HHAsstSecurity_lab = as.character(HHAsstSecurity)) %>% # if weights are needed use instead the row below 
-  #count(HHAsstSecurity_lab = as.character(HHAsstSecurity), wt = nameofweightvariable)
-  mutate(Percentage = 100 * n / sum(n)) %>%
-  ungroup() %>% select(-n) %>%
-  pivot_wider(names_from = HHAsstSecurity_lab,
-              values_from = Percentage,
-              values_fill =  0) 
+#CC 1.2 Barriers to training
 
+BarriersToTraining <- CrossCuttingData %>% 
+  # Select the necessary variables for this analysis
+  select(HHID, HHAsstAccess, HHAsstAccessAction, IDPoor, HHHSex) %>% # Might need to add HHAsstAccessWhat here when we have the final data set
+  # Mutate the key variable (HHAsstAccess) to have meaningful labels
+  mutate(HHAsstAccess = case_when(
+    HHAsstAccess == 0 ~ "No",
+    HHAsstAccess == 1 ~ "Yes",
+    TRUE ~ "Don't know"))
 
-#CC 1.2
-
-#Load survey data
-
-data <- read_csv("Static/PROP_AAP_CRF_Sample_Survey.csv")
+# Indicator Calculation
+BarriersToTraining %>% 
+  group_by(HHAsstAccess) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
 #assign variable and value labels
 var_label(data$HHAsstAccess) <- "Have you or any member of your household been unable to access WFP assistance one or more times?"
-val_lab(data$HHAsstAccess) = num_lab("
-             0 No
-             1 Yes
-             888 Don't know
-")
 
+#CC 1.3 Treatment with respect and dignity
 
-#creates a table of the weighted percentage of HHAsstAccess by
-#creating a temporary variable to display value labels 
-#and providing the option to use weights if needed
+TreatedRespectfully <- CrossCuttingData %>% 
+  # Select the necessary variables for this analysis
+  select(HHID, HHAsstRespect, HHDTPDign, IDPoor, HHHSex) %>% 
+  # Mutate the key variables (HHAsstRespect and HHDTPDign) to have meaningful labels
+  mutate(HHAsstRespect = case_when(
+    HHAsstRespect == 0 ~ "No",
+    HHAsstRespect == 1 ~ "Yes"),
+    HHDTPDign = case_when(
+    HHDTPDign == 0 ~ "No",
+    HHDTPDign == 1 ~ "Yes")) %>% 
+  # Mutate the key variable (Treated with respect and dignity at the program site) to have meaningful labels
+  mutate(HHAsstRespectDign = case_when(
+    HHAsstRespect == "Yes" & HHDTPDign == "Yes" ~ "Yes",
+    TRUE ~ "No"))
 
-
-HHAsstAccess_table_wide <- data %>% 
-  drop_na(HHAsstAccess) %>%
-  count(HHAsstAccess_lab = as.character(HHAsstAccess)) %>% # if weights are needed use instead the row below 
-  #count(HHAsstAccess_lab = as.character(HHAsstAccess), wt = nameofweightvariable)
-  mutate(Percentage = 100 * n / sum(n)) %>%
-  ungroup() %>% select(-n) %>%
-  pivot_wider(names_from = HHAsstAccess_lab,
-              values_from = Percentage,
-              values_fill =  0) 
-
-
-#CC 1.3
-#add sample data
-data <- read_csv("Static/PROP_AAP_CRF_Sample_Survey.csv")
+# Indicator Calculation
+TreatedRespectfully %>% 
+  group_by(HHAsstRespectDign) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
 #assign variable and value labels
 var_label(data$HHAsstRespect) <- "Do you think WFPandor partner staff have treated you and members of your household respectfully?"
 var_label(data$HHDTPDign) <- "Do you think the conditions of WFP programme sites are dignified?"
 
-data <- data %>%
-  mutate(across(c(HHAsstRespect, HHDTPDign), ~labelled(., labels = c(
-    "No" = 0,
-    "Yes" = 1
-  ))))
 
-#calculate indicator and assign variable label & name
-data <- data %>% mutate(HHAsstRespectDign = case_when(
-  HHAsstRespect == 1 & HHDTPDign == 1 ~ 1,
-  TRUE ~ 0
-))
-var_label(data$HHAsstRespectDign) <- "Treated with respect while engaging in WFP programs"
-val_lab(data$HHAsstRespectDign) = num_lab("
-             0 No
-             1 Yes
-")
+# 2.1 Accessible Information
+AccessibleInformation <- CrossCuttingData %>% 
+  # Select the necessary variables for this analysis
+  select(HHID, IDPoor, HHHSex, # Disagregation variables
+         HHAsstKnowEnt, HHAsstKnowPeople, HHAsstRecInfo, HHAsstReportMisc) %>% # Indicator calculation variables
+  # Mutate the key variables to have meaningful labels
+  mutate(HHAsstKnowEnt = case_when(
+    HHAsstKnowEnt == 0 ~ "No",
+    HHAsstKnowEnt == 1 ~ "Yes"),
+    HHAsstKnowPeople = case_when(
+    HHAsstKnowPeople == 0 ~ "No",
+    HHAsstKnowPeople == 1 ~ "Yes"),
+    HHAsstRecInfo = case_when(
+    HHAsstRecInfo == 0 ~ "No",
+    HHAsstRecInfo == 1 ~ "Yes",
+    HHAsstRecInfo == 3 ~ "I never received information"),
+    HHAsstReportMisc = case_when(
+    HHAsstReportMisc == 0 ~ "No",
+    HHAsstReportMisc == 1 ~ "Yes")) %>% 
+  # Create the Accessible Information variable
+  mutate(AccessibleInformation = case_when(
+    HHAsstKnowEnt == "Yes" & HHAsstKnowPeople == "Yes" & HHAsstRecInfo == "Yes" & HHAsstReportMisc == "Yes" ~ "Yes",
+    TRUE ~ "No"))
 
 
-#creates a table of the weighted percentage of HHAsstRespectDign by
-#creating a temporary variable to display value labels 
-#and providing the option to use weights if needed
+# Indicator Calculation
+AccessibleInformation %>% 
+  group_by(AccessibleInformation) %>%  # To include other disaggregation variables here once we have the final data
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
 
-HHAsstRespectDign_table_wide <- data %>% 
-  drop_na(HHAsstRespectDign) %>%
-  count(HHAsstRespectDign_lab = as.character(HHAsstRespectDign)) %>% # if weights are needed use instead the row below 
-  #count(HHAsstRespectDign_lab = as.character(HHAsstRespectDign), wt = nameofweightvariable)
-  mutate(Percentage = 100 * n / sum(n)) %>%
-  ungroup() %>% select(-n) %>%
-  pivot_wider(names_from = HHAsstRespectDign_lab,
-              values_from = Percentage,
-              values_fill =  0) 
+# 3.4 Community Meaningful Participation
+CommunityParticipation <- CrossCuttingData %>% 
+  # Select the necessary variables for this analysis
+  select(HHID, IDPoor, HHHSex, # Disagregation variables
+         starts_with("RGenEntity")) %>% # Indicator calculation variables
+  # Mutate the key variables to have meaningful labels
+  mutate(RGenEntityYN = case_when(
+    RGenEntityYN == 0 ~ "No",
+    RGenEntityYN == 1 ~ "Yes"),
+    RGenEntityRights = case_when(
+    RGenEntityRights == 0 ~ "No",
+    RGenEntityRights == 1 ~ "Yes"),
+    RGenEntityMeet = case_when(
+    RGenEntityMeet == 0 ~ "No",
+    RGenEntityMeet == 1 ~ "Yes"),
+    RGenEntityOp = case_when(
+    RGenEntityOp == 0 ~ "No",
+    RGenEntityOp == 1 ~ "Yes"),
+    RGenEntityNeg = case_when(
+    RGenEntityNeg == 0 ~ "No",
+    RGenEntityNeg == 1 ~ "Yes"),
+    RGenEntityViab = case_when(
+    RGenEntityViab == 0 ~ "No",
+    RGenEntityViab == 1 ~ "Yes"),
+    RGenEntityDM = case_when(
+    RGenEntityDM == 0 ~ "No",
+    RGenEntityDM == 1 ~ "Yes")) %>%
+  # Filter to have only those who answered "Yes" to the variable RGenEntityYN
+  filter(RGenEntityYN == "Yes") %>%
+  # Create the Community Participation variable
+  mutate(CommunityParticipation = case_when(
+    RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes" ~ "Meaningful Participation",
+    TRUE ~ "No Meaningful Participation"))
+
+
+# Calculate the percentage of beneficiaries reporting meaningful participation
+
+CommunityParticipation %>% 
+  group_by(CommunityParticipation) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
+
+
+
+
+
+
+
