@@ -3,7 +3,7 @@ library(tidyverse)
 ## Climate Resilience Capacity  Score (CRCS)
 # Load the data set
 
-CRCSData <- Copy_of_Data_Format_WFP_GASFP_WO8 %>%  #Input file path here
+CRCSData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%  #Input file path here
   #Select the necessary variables for this analysis - dis aggregation modules and $PSAMSRiceIncome variable
   select(HHID, HHHSex, HHHEthnicity, HHHLanguage, starts_with("HHCRCS"), -c(HHCRCSShocks, HHCRCSFloods, HHCRCSWildFire,
                                                                              HHCRCSHeatWave, HHCRCSStorms, HHCRCSDroughts)) %>%

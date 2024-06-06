@@ -1,10 +1,11 @@
 library(tidyverse)
 library(labelled)
 library(expss)
+library(readxl)
 
 
-#add sample data
-LCSENdata <- Copy_of_Data_Format_WFP_GASFP_WO8 %>% 
+#Import the data set
+LCSENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
   #Select necessary variables, in this case the livelihoods coping strategies and disaggretion variables
   select(HHID, HHHSex, HHHEthnicity, HHHLanguage, starts_with("LcsEN"), -(contains("LcsENAccess__"))) %>%
   #Add the necessary labels to the variables

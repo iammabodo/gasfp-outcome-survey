@@ -5,6 +5,7 @@ library(labelled)
 library(expss)
 library(janitor)
 library(gt)
+library(readxl)
 
 # Defining the Minimum Expenditure Basket (MEB) -----------------------------------
 MEB <- 375158 # This is the new MEB for Cambodia. We might need to use the previous MEB for comparison.
@@ -30,8 +31,8 @@ ECMENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
         HHHLanguage == 2 ~ "Bunong",
         TRUE ~ "Other"),
         IDPoor = case_when(
-        IDPoor != 1 ~ "No",
-        IDPoor == 1 ~ "Yes"),
+        IDPoor == 1 ~ "Yes",
+        TRUE ~ "No"),
         HHHSex = case_when(
         HHHSex == 0 ~ "Female",
         HHHSex == 1 ~ "Male")) %>%
@@ -92,7 +93,7 @@ var_label(ECMENdata$HHHSex) <- "Gender of the household head"
 var_label(ECMENdata$TotalFoodExp) <- "Total Food Expenditure"
 var_label(ECMENdata$TotalNonFoodExp) <- "Total Non Food Expenditure"
 var_label(ECMENdata$TotalNonFoodIntExp) <- "Total Non Food Intermediate Expenditure"
-var_label(ECMENdata$TotalExp) <- "Total Expenditure"
+var_label(ECMENdata$TotalExp) <- "Total Monthly Expenditure"
 var_label(ECMENdata$TotalExpPerCapita) <- "Total Expenditure per capita"
 var_label(ECMENdata$ECMEN) <- "Economic Capacity of the household"
 var_label(ECMENdata$SurvivalECMEN) <- "Survival Capacity of the household"

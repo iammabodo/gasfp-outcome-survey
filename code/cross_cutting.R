@@ -2,8 +2,6 @@ library(tidyverse)
 library(expss)
 library(labelled)
 
-
-
 # Import data for the calculation of all cross cutting indicators
 
 CrossCuttingData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
@@ -28,8 +26,6 @@ SafetyConcerns %>%
 
 # assign variable and value labels
 var_label(data$HHAsstSecurity) <- "Have you or any of your household members experienced any security challenge related to WFP assistance?"
-
-
 
 
 #CC 1.2 Barriers to training
@@ -145,7 +141,6 @@ CommunityParticipation <- CrossCuttingData %>%
   mutate(CommunityParticipation = case_when(
     RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes" ~ "Meaningful Participation",
     TRUE ~ "No Meaningful Participation"))
-
 
 # Calculate the percentage of beneficiaries reporting meaningful participation
 
