@@ -25,7 +25,7 @@ EconomicEmpowermentData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xl
     TRUE ~ "Other"),
     IDPoor = case_when(
     IDPoor == 1 ~ "Yes",
-    IDPoor != 1 ~ "No"),
+    TRUE ~ "No"),
     RFinancSitGender = case_when(
     RFinancSitGender == 0 ~ "Female",
     RFinancSitGender == 1 ~ "Male"),
@@ -33,12 +33,16 @@ EconomicEmpowermentData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xl
     RFinancSit == 1 ~ "Improved",
     RFinancSit == 2 ~ "Stayed the same",
     RFinancSit == 3 ~ "Worsened",
-    TRUE ~ "Prefer not to answer"))
+    TRUE ~ "Prefer not to answer")) %>%
+  # Create the economic empowerment variable
+  mutate(EconomicEmpowerment = case_when(
+    RFinancSit == "Improved" & Ladder1YearAgo <= LadderToday ~ "Economically Empowered",
+    TRUE ~ "Not Economically Empowered"))
 
 
 # Calculate the percentage of people reporting that the financial situation has improved, stayed the same, or worsened
 EconomicEmpowermentData %>% 
-  group_by(RFinancSit) %>% # To include the disaggregation by gender of the respondent here once we have the final data
+  group_by(IDPoor, EconomicEmpowerment) %>% # To include the disaggregation by gender of the respondent here once we have the final data
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100)
 
