@@ -54,23 +54,18 @@ LCSENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
     Max_coping_behaviourEN == 4 ~ "Emergencies coping strategies",
     TRUE ~ "NA"))
 
-
-
-
-
 #create a variable to specify if the household used any of the strategies by severity
-#stress
 
+# Stress
 var_label(data$stress_coping_EN) <- "Did the HH engage in stress coping strategies"
+
 #Crisis
-
 var_label(data$crisis_coping_EN) <- "Did the HH engage in crisis coping strategies"
-#Emergency
 
+# Emergency
 var_label(data$emergency_coping_EN) <- "Did the HH engage in emergency coping strategies"
 
-#calculate Max_coping_behaviour
-
+# Calculate Max_coping_behavior
 var_label(data$Max_coping_behaviourEN) <- "Summary of asset depletion"
 val_lab(data$Max_coping_behaviourEN) = num_lab("
              1 HH not adopting coping strategies
@@ -82,7 +77,6 @@ val_lab(data$Max_coping_behaviourEN) = num_lab("
 #creates a table of the weighted percentage of Max_coping_behaviourFS by
 #creating a temporary variable to display value labels 
 #and providing the option to use weights if needed
-
 
 Max_coping_behaviourEN_table_wide <- LCSENdata %>% 
   drop_na(Max_coping_behaviourEN) %>%
