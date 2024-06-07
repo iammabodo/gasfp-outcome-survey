@@ -54,7 +54,7 @@ SAMSRoster2 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx",
 # Import the data with other relevant variables from the household data set
 HHLevelData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, HHID, ADMIN4Name, Roster_PSAMSRice__id, ACName, HHBaseline, HHList, HHHSex,
+  select(interview__key, HHID, ADMIN4Name, ACName, HHBaseline, HHList, HHHSex,
          HHHEducation, HHHEthnicity, HHHLanguage, IDPoor, HHIncTot, contains("SAMSPHL")) %>% 
   # Rename ADMIN4Name, ACName, HHBaseline, HHHEducation, HHHEthnicity, HHHLanguage, IDPoor and HHHSex to have more descriptive values
   mutate(ADMIN4Name = case_when(
@@ -138,8 +138,11 @@ HHSAMSRoster %>%
 
 # 2. Calculate the average post harvest losses. This code for indicator need to be revised
 HHSAMSRoster %>% 
-  mutate(PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
-  group_by(RiceType) %>% 
+  mutate(PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost),
+         PSAMSPHLCommQuant = as.numeric(PSAMSPHLCommQuant)) %>%
+  # Calculate the percentage of post harvest losses
+  mutate(PSAMSPHLCommQntLost = (PSAMSPHLCommQntLost / PSAMSPHLCommQuant) * 100) %>%
+  group_by(RiceType) %>%
   summarise(AvgPostHarvestLosses = mean(PSAMSPHLCommQntLost,
                                         na.rm = TRUE))
 
