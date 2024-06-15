@@ -142,8 +142,13 @@ HHSAMSRoster %>%
          PSAMSPHLCommQuant = as.numeric(PSAMSPHLCommQuant)) %>%
   # Calculate the percentage of post harvest losses
   mutate(PSAMSPHLCommQntLost = (PSAMSPHLCommQntLost / PSAMSPHLCommQuant) * 100) %>%
-  group_by(RiceType) %>%
-  summarise(AvgPostHarvestLosses = mean(PSAMSPHLCommQntLost,
+  # Mutate average loss per farmer
+  group_by(HHID) %>%
+  mutate(averagelossperfarmer = mean(PSAMSPHLCommQntLost,
+                                     na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(HHHEthnicity, IDPoor, HHHLanguage) %>%
+  summarise(AvgPostHarvestLosses = mean(averagelossperfarmer,
                                         na.rm = TRUE))
 
 # 3. Calculate the total household income from rice production

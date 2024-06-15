@@ -57,21 +57,27 @@ LCSENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
 #create a variable to specify if the household used any of the strategies by severity
 
 # Stress
-var_label(data$stress_coping_EN) <- "Did the HH engage in stress coping strategies"
+var_label(LCSENdata$LcsEN_stress_DomAsset) <- "Engage in stress coping strategies by selling domestic assets"
+var_label(LCSENdata$LcsEN_stress_Saving) <- "Engage in stress coping strategies by spending savings"
+var_label(LCSENdata$LcsEN_stress_BorrowCash) <- "Engage in stress coping strategies by borrowing cash"
+var_label(LCSENdata$LcsEN_stress_HHSeparation) <- "Engage in stress coping strategies by separation of family members"
+var_label(LCSENdata$stress_coping_EN) <- "Did the HH engage in stress coping strategies"
 
 #Crisis
-var_label(data$crisis_coping_EN) <- "Did the HH engage in crisis coping strategies"
+var_label(LCSENdata$LcsEN_crisis_ProdAssets) <- "Engage in crisis coping strategies by selling productive assets"
+var_label(LCSENdata$LcsEN_crisis_Health) <- "Engage in crisis coping strategies by spending on health"
+var_label(LCSENdata$LcsEN_crisis_OutSchool) <- "Engage in crisis coping strategies by taking children out of school"
+var_label(LCSENdata$LcsEN_crisis_Edu) <- "Engage in crisis coping strategies by reducing education expenses"
+var_label(LCSENdata$crisis_coping_EN) <- "Did the HH engage in crisis coping strategies"
+
 
 # Emergency
-var_label(data$emergency_coping_EN) <- "Did the HH engage in emergency coping strategies"
+var_label(LCSENdata$LcsEN_em_ResAsset) <- "Engage in emergency coping strategies by selling residential assets e.g., house"
+var_label(LCSENdata$LcsEN_em_Begged) <- "Engage in emergency coping strategies by begging"
+var_label(LCSENdata$LcsEN_em_IllegalAct) <- "Engage in emergency coping strategies by engaging in illegal activities"
+var_label(LCSENdata$emergency_coping_EN) <- "Did the HH engage in emergency coping strategies"
 
 # Calculate Max_coping_behavior
-var_label(data$Max_coping_behaviourEN) <- "Summary of asset depletion"
-val_lab(data$Max_coping_behaviourEN) = num_lab("
-             1 HH not adopting coping strategies
-             2 Stress coping strategies
-             3 Crisis coping strategies
-             4 Emergencies coping strategies")
 
 
 #creates a table of the weighted percentage of Max_coping_behaviourFS by
@@ -87,6 +93,12 @@ Max_coping_behaviourEN_table_wide <- LCSENdata %>%
   ungroup() %>% select(-n) %>%
   pivot_wider(names_from = Max_coping_behaviourEN,
               values_from = Percentage,
-              values_fill =  0) 
+              values_fill =  0) %>% 
+  drop_na()
 
-
+# Graph maximum coping behaviour
+Max_coping_behaviourEN_table_wide %>%
+  gather(Max_coping_behaviourEN, Percentage, -HHHEthnicity, -HHHLanguage) %>%
+  ggplot(aes(x = HHHEthnicity, y = Percentage, fill = Max_coping_behaviourEN)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Maximum coping")
