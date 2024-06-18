@@ -9,10 +9,9 @@ library(expss)
 library(readxl)
 
 # Import first roster data
-SAMSRoster1 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx", 
-    sheet = "Roster_PSAMSRice") %>% 
+PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, Roster_PSAMSRice__id, 
+  select(interview_key, Roster_PSAMSRice_id, 
          PSAMSRiceHarvestsNmb, PSAMSNutCropIncr, PSAMSPHLCommEnough,
          PSAMSRiceInputsMN, PSAMSRiceSell, PSAMSRiceSellTime, PSAMSRiceSellQuant,
          PSAMSRiceSellMN, PSAMSRiceRevenue, PSAMSRiceIncome, Income) %>% 
@@ -30,14 +29,28 @@ SAMSRoster1 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx",
     PSAMSRiceSell == 0 ~ "No",
     TRUE ~ "Don't Know"),
     RiceType = case_when(
-    Roster_PSAMSRice__id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice__id == 2 ~ "Non Organic Rice"))
+    Roster_PSAMSRice_id == 1 ~ "Organic Rice",
+    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice")) %>% 
+  # Change PSAMSRiceSellMN, PSAMSRiceSellQuant, PSAMSRiceInputsMN, PSAMSRiceRevenue, PSAMSRiceIncome, Income to numeric
+  mutate(PSAMSRiceSellMN = as.numeric(PSAMSRiceSellMN),
+         PSAMSRiceSellQuant = as.numeric(PSAMSRiceSellQuant),
+         PSAMSRiceInputsMN = as.numeric(PSAMSRiceInputsMN),
+         PSAMSRiceRevenue = as.numeric(PSAMSRiceRevenue),
+         PSAMSRiceIncome = as.numeric(PSAMSRiceIncome),
+         Income = as.numeric(Income))
+
+# Calculate average price of rice by rice type
+PSAMSRiceRoster %>% 
+  filter(PSAMSRiceSell == "Yes") %>%
+  group_by(RiceType) %>% 
+  summarise(AvgPrice = mean(PSAMSRiceSellMN,
+                           na.rm = TRUE),
+            Count  = n())
 
 # Import second roster data
-SAMSRoster2 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx", 
-    sheet = "Roster_Q15_21HarvestNmb") %>% 
+PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, Roster_PSAMSRice__id, Roster_HarvestNmb__id, 
+  select(interview_key, Roster_PSAMSRice_id, Roster_HarvestNmb_id, 
          PSAMSPHLCommArea, PSAMSPHLCommArea_Unit, PSAMSPHLCommArea_Unit_OTH, PSAMSPHLCommQuant,
          PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>% 
   # Rename PSAMSPHLCommArea_Unit to have more descriptive values
@@ -48,13 +61,24 @@ SAMSRoster2 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx",
     PSAMSPHLCommArea_Unit == 4 ~ "Hectare",
     TRUE ~ "Other"),
     RiceType = case_when(
-    Roster_PSAMSRice__id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice__id == 2 ~ "Non Organic Rice"))
+    Roster_PSAMSRice_id == 1 ~ "Organic Rice",
+    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice")) %>% 
+  # Change PSAMSPHLCommArea, PSAMSPHLCommQuant, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to numeric
+  mutate(PSAMSPHLCommArea = as.numeric(PSAMSPHLCommArea),
+         PSAMSPHLCommQuant = as.numeric(PSAMSPHLCommQuant),
+         PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
+         PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>% 
+  # Chnage PSAMSPHLCommArea to hectare
+  mutate(PSAMSPHLCommArea = case_when(
+    PSAMSPHLCommArea_Unit == "Square Meter" ~ PSAMSPHLCommArea / 10000,
+    PSAMSPHLCommArea_Unit == "Acre" ~ PSAMSPHLCommArea * 0.404686,
+    PSAMSPHLCommArea_Unit == "Hectare" ~ PSAMSPHLCommArea,
+    TRUE ~ PSAMSPHLCommArea))
 
 # Import the data with other relevant variables from the household data set
-HHLevelData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
+HHLevelData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, HHID, ADMIN4Name, ACName, HHBaseline, HHList, HHHSex,
+  select(interview_key, HHID, ADMIN4Name, ACName, HHBaseline, HHList, SEX_HHH,
          HHHEducation, HHHEthnicity, HHHLanguage, IDPoor, HHIncTot, contains("SAMSPHL")) %>% 
   # Rename ADMIN4Name, ACName, HHBaseline, HHHEducation, HHHEthnicity, HHHLanguage, IDPoor and HHHSex to have more descriptive values
   mutate(ADMIN4Name = case_when(
@@ -103,36 +127,45 @@ HHLevelData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
     IDPoor == 888 ~ "Don't Know",
     TRUE ~ "Refuse / prefer not to answer"),
     HHIncTot = as.numeric(HHIncTot)) %>% 
-  # Pivot longer using PSAMSPHLCommN_1 and PSAMSPHLCommN_2 variables
-  pivot_longer(cols = c("PSAMSPHLCommN__1", "PSAMSPHLCommN__2"), 
-               names_to = "RiceType", 
-               values_to = "Produced") %>%
-  # Mutate the RiceType variable to be more descriptive
-  mutate(RiceType = case_when(RiceType == "PSAMSPHLCommN__1" ~ "Organic Rice",
-                              RiceType == "PSAMSPHLCommN__2" ~ "Non Organic Rice")) %>%
+  # # Pivot longer using PSAMSPHLCommN_1 and PSAMSPHLCommN_2 variables
+   pivot_longer(cols = c("PSAMSPHLCommN_1", "PSAMSPHLCommN_2"),
+                names_to = "RiceType",
+                values_to = "Produced") %>%
+   # Mutate the RiceType variable to be more descriptive
+   mutate(RiceType = case_when(RiceType == "PSAMSPHLCommN_1" ~ "Organic Rice",
+                              RiceType == "PSAMSPHLCommN_2" ~ "Non Organic Rice")) %>%
   # Mutate the Produced variable to be more descriptive
-  mutate(Produced = case_when(Produced == 1 ~ "Yes",
-                              TRUE ~ "No")) #%>%
+    mutate(Produced = case_when(Produced == 1 ~ "Yes",
+                             TRUE ~ "No")) #%>%
   # Filter out the rows where the Produced variable is "Yes"
-  #filter(Produced == "Yes")
+    #filter(Produced == "Yes")
 
 ## Joining the three data sets
 
-# Join the SAMSRoster1 and SAMSRoster2 data sets
-SAMSRoster <- left_join(SAMSRoster1, 
-                        SAMSRoster2, 
-                        by = c("interview__key", "RiceType"))
+# Join the PSAMSRiceRoster and PSAMSHarvestRoster  data sets
+SAMSRoster <- left_join(PSAMSRiceRoster, 
+                        PSAMSHarvestRoster,
+                        by = c("interview_key", "RiceType")) %>% 
+  group_by(interview_key)
+
+# Calculate the percentange of farmers reporting increase in the production of rice
+SAMSRoster %>% 
+  filter(RiceType == "Organic Rice") %>%
+  group_by(PSAMSNutCropIncr) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
 # Join the SAMSRoster and HHLevelData data sets
 HHSAMSRoster <- left_join(HHLevelData, 
                           SAMSRoster,
-                          by = c("interview__key", "RiceType"))
+                          by = c("interview__key", "RiceType")) %>% 
 
 ## Calculate the indicators
 
 # 1. Calculate the percentage of farmers reporting increase in the production of rice
 HHSAMSRoster %>% 
-  group_by(RiceType, PSAMSNutCropIncr) %>% 
+  filter(RiceType == "Organic Rice") %>%
+  group_by(PSAMSNutCropIncr) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100)
 
