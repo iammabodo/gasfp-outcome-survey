@@ -58,9 +58,9 @@ ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
   # Remove outliers
   # find_outliers() %>% Uncomment this line to remove outliers
   # mutate a variable by summing across variables that contains _7
-  mutate(TotalFoodExp = rowSums(across(contains("_7"))),
-         TotalNonFoodExp = rowSums(across(contains("_1M"))),
-         TotalNonFoodIntExp = rowSums(across(contains("_6M")))) %>% 
+  mutate(TotalFoodExp = rowSums(across(ends_with("_7D"))),
+         TotalNonFoodExp = rowSums(across(ends_with("_1M"))),
+         TotalNonFoodIntExp = rowSums(across(ends_with("_6M")))) %>% 
   # Convert TotalFoodExp to monthly by dividing by 7 and multiplying by 30
   mutate(TotalFoodExp = TotalFoodExp * 30/7) %>%
   # Convert TotalNonFoodIntExp to monthly by dividing by 6
