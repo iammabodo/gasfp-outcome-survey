@@ -11,8 +11,10 @@ library(readxl)
 source("~/Work 2023 -Eltone/General M&E/GASFP Project/gasfp-outcome-survey/code/functions.R")
 
 # Defining the Minimum Expenditure Basket (MEB) -----------------------------------
-MEB <- 375158 # This is the new MEB for Cambodia. We might need to use the previous MEB for comparison.
-SMEB <- 180648 # This is the new SMEB for Cambodia.We might need to use the previous SMEB for comparison.
+NewMEB <- 375158 # This is the new MEB for Cambodia. 
+NewSMEB <- 180648 # This is the new SMEB for Cambodia.
+OldMEB <- 323614 # This is the old MEB for Cambodia. 
+OldSMEB <- 159181 # This is the old SMEB for Cambodia.
 
 
 # Loading data and calculating ECMEN --------------------------------------------
@@ -71,23 +73,18 @@ ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
   mutate(TotalExpPerCapitaUSD = TotalExpPerCapita / 4100) %>%
   # Create the ECMEN variable by comparing the TotalExpPerCapita by the Minimum Expenditure Basket (MEB)
   mutate(ECMEN = case_when(
-    TotalExpPerCapita >=  MEB ~ "Able to meet essential needs",
-    TotalExpPerCapita < MEB ~ "Unable to meet essential needs"
+    TotalExpPerCapita >=  OldMEB ~ "Able to meet essential needs",
+    TotalExpPerCapita < OldMEB ~ "Unable to meet essential needs"
   )) %>%
   # Calculate survival ecmen
   mutate(SurvivalECMEN = case_when(
-    TotalExpPerCapita >=  SMEB ~ "Able Survive",
-    TotalExpPerCapita < SMEB ~ "Unable to Survive"
+    TotalExpPerCapita >=  OldSMEB ~ "Able Survive",
+    TotalExpPerCapita < OldSMEB ~ "Unable to Survive"
   ))
 
 
 # Compute the percentage of households that are able to meet essential needs
 OveralECMEN <- ECMENdata %>% 
-  count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2))
-
-IDPoorECMEN <- ECMENdata %>% 
-  group_by(IDPoor) %>%
   count(ECMEN) %>% 
   mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
   # Filter out the households that are not able to meet essential needs
@@ -96,7 +93,7 @@ IDPoorECMEN <- ECMENdata %>%
 HHHSexECMEN <- ECMENdata %>% 
   group_by(HHHSex) %>%
   count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
+  mutate(Percentage = round(100 * n / sum(n), 2)) #%>% 
   # Filter out the households that are not able to meet essential needs
   filter(ECMEN == "Unable to meet essential needs")
 
@@ -106,30 +103,15 @@ HHHEthnicityECMEN <- ECMENdata %>%
   mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
   # Filter out the households that are not able to meet essential needs
   filter(ECMEN == "Unable to meet essential needs")
-  
-
-HHHLanguageECMEN <- ECMENdata %>%
-  group_by(HHHLanguage) %>%
-  count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
-  # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs")
 
 # Compute the average economic capacity of households
 ECMENIncTot <- ECMENdata %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
+  summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
 
-ECMENIncIDPoor <- ECMENdata %>%
-  group_by(IDPoor) %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
 ECMENIncHHHSex <- ECMENdata %>%
   group_by(HHHSex) %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
+  summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
 
 ECMENIncHHHEthnicity <- ECMENdata %>%
   group_by(HHHEthnicity) %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
+  summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
