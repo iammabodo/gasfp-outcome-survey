@@ -1,15 +1,15 @@
 library(tidyverse)
 
 ## Climate Resilience Capacity  Score (CRCS)
-# Load the data set
 
+# Load the data set
 
 CRCSData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx",
                        sheet = 1) %>%  #Input file path here
   #Select the necessary variables for this analysis - dis aggregation modules and $PSAMSRiceIncome variable
   select(HHID, SEX_HHH, HHHEthnicity, HHHLanguage, starts_with("HHCRCS"), -c(HHCRCSShocks, HHCRCSFloods, HHCRCSWildFire,
                                                                              HHCRCSHeatWave, HHCRCSStorms, HHCRCSDroughts)) %>%
-  # Create HHHEthnicity and HHHLanguage variables to be more descriptive
+  # Create HHHEthnicity, SEX_HHH and HHHLanguage variables to be more descriptive
   mutate(HHHEthnicity = case_when(
     HHHEthnicity == 3 | HHHEthnicity == 11 | HHHEthnicity == 12 ~ "Ethnic Minority",
     HHHEthnicity == 999 ~ "Other",
@@ -19,6 +19,9 @@ CRCSData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx",
     HHHLanguage == 1 ~ "Khmer",
     HHHLanguage == 2 ~ "Bunong",
     TRUE ~ "Other")) %>%
+  mutate(HHHSex = case_when(
+    SEX_HHH == 1 ~ "Male",
+    SEX_HHH == 0 ~ "Female")) %>% 
   # Create the CRCSScore variable by summing across the variables that contains HHCRCS
   mutate(CRCSScore = rowSums(across(contains("HHCRCS")))) %>%
   # Normalize the CRCSScore by dividing by 9
@@ -35,7 +38,7 @@ CRCSData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx",
 
 CRCSData %>% 
   # Group by HHHEthnicity, HHHLanguage, IDPoor, HHHSex
-  group_by(HHHEthnicity, HHHLanguage) %>% 
+  group_by(HHHEthnicity) %>% 
   # Calculate the necessary indicators
   summarise(AverageCRCSScore = mean(CRCSScore, na.rm = T)) %>% 
   # Ungroup the variables - to enable further analysis
@@ -43,7 +46,7 @@ CRCSData %>%
 
 # Calculate the percent of household in different CRCSCategory
 CRCSData %>% 
-  group_by(CRCSCategory, HHHEthnicity) %>% 
+  group_by(CRCSCategory) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100)
 # Graph the results in a stacked bar chart
