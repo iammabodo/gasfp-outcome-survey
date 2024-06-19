@@ -20,7 +20,7 @@ OldSMEB <- 159181 # This is the old SMEB for Cambodia.
 # Loading data and calculating ECMEN --------------------------------------------
 ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate ECMEN
-  select(ADMIN4Name, ACName, HHID, HHList, HHBaseline, 
+  select(ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, 
          starts_with("HHExp"), HHHEthnicity, HHHLanguage,
          IDPoor, SEX_HHH) %>% 
   # Assign labels to grouping variables categories
@@ -41,6 +41,9 @@ ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
         HHHSex = case_when(
         SEX_HHH == 0 ~ "Female",
         SEX_HHH == 1 ~ "Male"),
+        RespSex = case_when(
+        SEX_Resp == 0 ~ "Female",
+        SEX_Resp == 1 ~ "Male"),
         ADMIN4Name = case_when(
         ADMIN4Name == 100 ~ "Nang Khi Loek",
         ADMIN4Name == 200 ~ "Ou Buon Leu",
@@ -55,6 +58,8 @@ ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
         ACName == 3 ~ "Samaki Phum Toul",
         ACName == 4 ~ "Apiwat Mean Chey",
         ACName == 5 ~ "Samaki Rik Chom Roeung")) %>%
+  # Mutate HHHSex to be equal to SEX_Resp if it is missing
+  mutate(HHHSex = if_else(is.na(HHHSex), RespSex, HHHSex)) %>%
   # Remove outliers
   # find_outliers() %>% Uncomment this line to remove outliers
   # mutate a variable by summing across variables that contains _7
@@ -95,7 +100,7 @@ HHHSexECMEN <- ECMENdata %>%
   count(ECMEN) %>% 
   mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
   # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs") %>% 
+  filter(ECMEN == "Unable to meet essential needs") #%>% 
   # Pivot wider
   pivot_wider(names_from = HHHSex, 
               values_from = Percentage)
