@@ -20,7 +20,7 @@ OldSMEB <- 159181 # This is the old SMEB for Cambodia.
 # Loading data and calculating ECMEN --------------------------------------------
 ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate ECMEN
-  select(ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, 
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, 
          starts_with("HHExp"), HHHEthnicity, HHHLanguage,
          IDPoor, SEX_HHH) %>% 
   # Assign labels to grouping variables categories
@@ -85,15 +85,20 @@ ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
   mutate(SurvivalECMEN = case_when(
     TotalExpPerCapita >=  OldSMEB ~ "Able Survive",
     TotalExpPerCapita < OldSMEB ~ "Unable to Survive"
-  ))
+  )) %>% 
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, HHHSex, RespSex, HHHEthnicity, HHHLanguage, everything(), -SEX_Resp)
 
+##########################################################################################################################################
 
-# Compute the percentage of households that are able to meet essential needs
+# Indicator 1: Overall Percentage of households that are unable to meet essential needs
+
 OveralECMEN <- ECMENdata %>% 
   count(ECMEN) %>% 
   mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
   # Filter out the households that are not able to meet essential needs
   filter(ECMEN == "Unable to meet essential needs")
+
+# Indicator 2: Percentage of households that are unable to meet essential needs, dis aggregated gender of the household heard
 
 HHHSexECMEN <- ECMENdata %>% 
   group_by(HHHSex) %>%
@@ -104,7 +109,9 @@ HHHSexECMEN <- ECMENdata %>%
   # Pivot wider
   pivot_wider(names_from = HHHSex, 
               values_from = Percentage)
-
+  
+# Indicator 3: Percentage of households that are unable to meet essential needs, dis aggregated by ethnicity
+  
 HHHEthnicityECMEN <- ECMENdata %>%
   group_by(HHHEthnicity) %>%
   count(ECMEN) %>% 
@@ -112,14 +119,17 @@ HHHEthnicityECMEN <- ECMENdata %>%
   # Filter out the households that are not able to meet essential needs
   filter(ECMEN == "Unable to meet essential needs")
 
-# Compute the average economic capacity of households
+# Indicator 4: Average economic per capita capacity 
 ECMENIncTot <- ECMENdata %>%
   summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
+
+# Indicator 5: Average economic per capita capacity, dis aggregated by gender of the household head
 
 ECMENIncHHHSex <- ECMENdata %>%
   group_by(HHHSex) %>%
   summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
 
+# Indicator 6: Average economic per capita capacity, dis aggregated by Ethinicity of the household head
 ECMENIncHHHEthnicity <- ECMENdata %>%
   group_by(HHHEthnicity) %>%
   summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))

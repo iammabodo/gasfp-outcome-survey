@@ -54,6 +54,10 @@ HHDisabRoster <- read_excel("data/HHRoster_Cleaned_Numeric.xlsx") %>%
       PDisabUnderstand == "Some difficulty" | PDisabUnderstand == "A lot of difficulty" | PDisabUnderstand == "Cannot do at all" |
       PDisabWash == "Some difficulty" | PDisabWash == "A lot of difficulty" | PDisabWash == "Cannot do at all" ~ "Yes",
     TRUE ~ "No")) %>% 
+# Mutate HHMemsex to be equal to Female if 0 or Male if 1
+  mutate(HHMemsex = case_when(
+  HHMemsex == 0 ~ "Female",
+  HHMemsex == 1 ~ "Male")) %>%
   # Group by the household ID and count the number of disabled members
   group_by(interview_key) %>%
   summarise(NumDisab = sum(Disab == "Yes", na.rm = TRUE)) %>%
@@ -61,7 +65,11 @@ HHDisabRoster <- read_excel("data/HHRoster_Cleaned_Numeric.xlsx") %>%
   mutate(HHDisab = case_when(
     NumDisab > 0 ~ "Yes",
     TRUE ~ "No"))
-  
+
+# Calculate the percentage of households with disabled members
+HHDisabRoster %>% 
+  count(HHDisab) %>% 
+  mutate(Percentage = round(100 * n / sum(n), 2))
   
   
   
