@@ -22,7 +22,11 @@ SafetyConcerns <- CrossCuttingData %>%
 SafetyConcerns %>% 
   group_by(HHAsstSecurity) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  select(-Count) %>% 
+  pivot_wider(names_from = HHAsstSecurity, values_from = Percentage) %>% 
+  mutate(Indicator = "Beneficiaries reporting safety concerns") %>% 
+  select(Indicator, everything())
 
 
 #CC 1.2 Barriers to training
@@ -40,7 +44,11 @@ BarriersToTraining <- CrossCuttingData %>%
 BarriersToTraining %>% 
   group_by(HHAsstAccess) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  select(-Count) %>%
+  pivot_wider(names_from = HHAsstAccess, values_from = Percentage) %>%
+  mutate(Indicator = "Barriers to Training") %>%
+  select(Indicator, everything())
 
 #CC 1.3 Treatment with respect and dignity
 
@@ -63,7 +71,11 @@ TreatedRespectfully <- CrossCuttingData %>%
 TreatedRespectfully %>% 
   group_by(HHAsstRespectDign) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  select(-Count) %>%
+  pivot_wider(names_from = HHAsstRespectDign, values_from = Percentage) %>%
+  mutate(Indicator = "Treated with respect and dignity") %>%
+  select(Indicator, everything())
 
 
 # 2.1 Accessible Information
@@ -95,7 +107,11 @@ AccessibleInformation <- CrossCuttingData %>%
 AccessibleInformation %>% 
   group_by(AccessibleInformation) %>%  # To include other disaggregation variables here once we have the final data
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  select(-Count) %>%
+  pivot_wider(names_from = AccessibleInformation, values_from = Percentage) %>%
+  mutate(Indicator = "Accessible Information") %>%
+  select(Indicator, everything())
 
 
 # 3.4 Community Meaningful Participation
@@ -137,7 +153,12 @@ CommunityParticipation <- CrossCuttingData %>%
 CommunityParticipation %>% 
   group_by(CommunityParticipation) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  select(-Count) %>%
+  pivot_wider(names_from = CommunityParticipation, values_from = Percentage) %>%
+  mutate(Indicator = "Community Meaningful Participation") %>%
+  select(Indicator, everything())
+
 
 
 
