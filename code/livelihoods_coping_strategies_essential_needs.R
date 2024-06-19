@@ -5,9 +5,9 @@ library(readxl)
 
 
 #Import the data set
-LCSENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
+LCSENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   #Select necessary variables, in this case the livelihoods coping strategies and disaggretion variables
-  select(HHID, HHHSex, HHHEthnicity, HHHLanguage, starts_with("LcsEN"), -(contains("LcsENAccess__"))) %>%
+  select(HHID, SEX_HHH, HHHEthnicity, HHHLanguage, starts_with("LcsEN"), -(contains("LcsENAccess__"))) %>%
   #Add the necessary labels to the variables
   mutate(across(c(LcsEN_stress_DomAsset,LcsEN_stress_Saving,LcsEN_stress_BorrowCash, LcsEN_stress_HHSeparation, # Stress coping strategies
                   LcsEN_crisis_ProdAssets,LcsEN_crisis_Health,LcsEN_crisis_OutSchool, LcsEN_crisis_Edu, # Crisis coping strategies
@@ -53,6 +53,23 @@ LCSENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
     Max_coping_behaviourEN == 3 ~ "Crisis coping strategies",
     Max_coping_behaviourEN == 4 ~ "Emergencies coping strategies",
     TRUE ~ "NA"))
+
+
+LCSENdata %>% 
+  group_by(Max_coping_behaviourEN) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100)
+
+LCSENdata %>% 
+  group_by(Max_coping_behaviourEN) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  ggplot(aes(x = Max_coping_behaviourEN, y = Percentage)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Maximum coping behaviour")
+
+
+
 
 #create a variable to specify if the household used any of the strategies by severity
 
