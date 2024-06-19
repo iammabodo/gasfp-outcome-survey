@@ -93,9 +93,12 @@ OveralECMEN <- ECMENdata %>%
 HHHSexECMEN <- ECMENdata %>% 
   group_by(HHHSex) %>%
   count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) #%>% 
+  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
   # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs")
+  filter(ECMEN == "Unable to meet essential needs") %>% 
+  # Pivot wider
+  pivot_wider(names_from = HHHSex, 
+              values_from = Percentage)
 
 HHHEthnicityECMEN <- ECMENdata %>%
   group_by(HHHEthnicity) %>%
