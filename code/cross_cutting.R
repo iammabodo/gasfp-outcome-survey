@@ -5,7 +5,7 @@ library(labelled)
 # Import data for the calculation of all cross cutting indicators
 
 CrossCuttingData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
-  select(HHID, SEX_HHH, HHHEthnicity, HHList, HHHLanguage, IDPoor, HHBaseline, # Disagregation variables
+  select(interview_key, HHID, SEX_HHH, HHHEthnicity, HHList, HHHLanguage, IDPoor, HHBaseline, # Disagregation variables
          starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity"))
 
 
@@ -115,10 +115,26 @@ AccessibleInformation %>%
 
 
 # 3.4 Community Meaningful Participation
+
+# Import the data with additional variables (gender and age of the respondent)
+
+GenderData <- read_excel("data/WFP_GASFP_WO8_NumericV2.xlsx") %>% 
+  select(interview_key, HHID, Part19_HHMemberID, Part19_RespGender, Part19_RespAge) %>% 
+  # Rename the variables
+  rename(HHMemberID = Part19_HHMemberID,
+         RespGender = Part19_RespGender,
+         RespAge = Part19_RespAge) %>% 
+  # Change RespGender to a more meaningful variable
+  mutate(RespGender = case_when(
+    RespGender == 1 ~ "Male",
+    RespGender == 0 ~ "Female"))
+
 CommunityParticipation <- CrossCuttingData %>% 
   # Select the necessary variables for this analysis
-  select(HHID, IDPoor, SEX_HHH, # Disagregation variables
+  select(interview_key, HHID, IDPoor, # Disagregation variables
          starts_with("RGenEntity")) %>% # Indicator calculation variables
+  # Join with Gender data
+  left_join(GenderData, by = "interview_key") %>%
   # Mutate the key variables to have meaningful labels
   mutate(RGenEntityYN = case_when(
     RGenEntityYN == 0 ~ "No",
@@ -151,7 +167,7 @@ CommunityParticipation <- CrossCuttingData %>%
 # Calculate the percentage of beneficiaries reporting meaningful participation
 
 CommunityParticipation %>% 
-  group_by(CommunityParticipation) %>% 
+  group_by(RespGender, CommunityParticipation) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
   select(-Count) %>%
