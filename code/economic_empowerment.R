@@ -45,10 +45,22 @@ GenderEconomicEmpGap <- EconomicEmpowermentData %>%
   group_by(Sex, EconomicEmpowerment) %>% # To include the disaggregation by gender of the respondent here once we have the final data
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  # round the percentage to 2 decimal places
+  mutate(Percentage = round(Percentage, 2)) #%>%
   filter(EconomicEmpowerment == "Economically Empowered")
 
+  
+# Visualise the table using ggplot 
+GenderEconomicEmpGap %>%
+  ggplot(aes(EconomicEmpowerment, Percentage)) +
+  geom_col(colour = ) + 
+  facet_wrap(~Sex) + 
+  theme_bw()
+  
 
-
+EconomicEmpowermentData %>% 
+  ggplot(aes(HHHLanguage,EconomicEmpowerment)) +
+  geom_count()
 
 
 

@@ -2,27 +2,16 @@ library(tidyverse)
 
 ## Climate Resilience Capacity  Score (CRCS)
 
-# Load the data set
+#######################################LOADING DATA####################################################
 
-CRCSData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%  #Input file path here
+CRCSData <- read_excel("data/FullHHRosterClean.xlsx") %>%  #Input file path here
   #Select the necessary variables for this analysis - dis aggregation modules and $PSAMSRiceIncome variable
-  select(HHID, SEX_HHH, HHHEthnicity, HHHLanguage, starts_with("HHCRCS"), -c(HHCRCSShocks, HHCRCSFloods, HHCRCSWildFire,
-                                                                             HHCRCSHeatWave, HHCRCSStorms, HHCRCSDroughts)) %>%
-  # Create HHHEthnicity, SEX_HHH and HHHLanguage variables to be more descriptive
-  mutate(HHHEthnicity = case_when(
-    HHHEthnicity == 3 | HHHEthnicity == 11 | HHHEthnicity == 12 ~ "Ethnic Minority",
-    HHHEthnicity == 999 ~ "Other",
-    HHHEthnicity == 888 ~ "Don't Know / prefer not to answer",
-    TRUE ~ "Indigenous"),
-    HHHLanguage = case_when(
-    HHHLanguage == 1 ~ "Khmer",
-    HHHLanguage == 2 ~ "Bunong",
-    TRUE ~ "Other")) %>%
-  mutate(HHHSex = case_when(
-    SEX_HHH == 1 ~ "Male",
-    SEX_HHH == 0 ~ "Female")) %>% 
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity, HHHLanguage,
+         starts_with("HHCRCS")) %>%
+  # Create HHHEthnicity, SEX_HHH and HHHLanguage variables to be more descriptive 
   # Create the CRCSScore variable by summing across the variables that contains HHCRCS
   mutate(CRCSScore = rowSums(across(contains("HHCRCS")))) %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
   # Normalize the CRCSScore by dividing by 9
   mutate(CRCSScore = (CRCSScore / 9) - 1) %>%
   # Divide the CRCSScore by 4, then multiply by 100 to get the percentage
@@ -63,8 +52,8 @@ CRCSData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%  #Input fi
     AdaptiveCapacity >= 66 ~ "High"))
 
 
+###################################################INDICATOR CALCULATION####################################################
 
-# Calculate percentage of households in different Resilience Capacities
 CRCSData %>% 
   group_by(AnticipatoryCapacityCategory) %>% 
   summarise(Count = n()) %>% 
@@ -104,5 +93,5 @@ CRCSData %>%
 # Graph the results in a stacked bar chart
 
 
-# Visualize the CRCS
+#############################################INDICATOR VISUALISATION####################################################
 

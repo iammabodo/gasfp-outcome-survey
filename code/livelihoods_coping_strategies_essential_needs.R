@@ -5,9 +5,10 @@ library(readxl)
 
 
 #Import the data set
-LCSENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
+LCSENdata <- read_excel("data/FullHHRosterClean.xlsx") %>% 
   #Select necessary variables, in this case the livelihoods coping strategies and disaggretion variables
-  select(HHID, SEX_HHH, HHHEthnicity, HHHLanguage, starts_with("LcsEN"), -(contains("LcsENAccess__"))) %>%
+  select(interview_key, HHID, HHList, HHBaseline, HHHEthnicity, HHHLanguage, IDPoor, HHHSex, RespSex, ADMIN4Name, 
+         starts_with("LcsEN")) %>%
   #Add the necessary labels to the variables
   mutate(across(c(LcsEN_stress_DomAsset,LcsEN_stress_Saving,LcsEN_stress_BorrowCash, LcsEN_stress_HHSeparation, # Stress coping strategies
                   LcsEN_crisis_ProdAssets,LcsEN_crisis_Health,LcsEN_crisis_OutSchool, LcsEN_crisis_Edu, # Crisis coping strategies
@@ -52,7 +53,8 @@ LCSENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
     Max_coping_behaviourEN == 2 ~ "Stress coping strategies",
     Max_coping_behaviourEN == 3 ~ "Crisis coping strategies",
     Max_coping_behaviourEN == 4 ~ "Emergencies coping strategies",
-    TRUE ~ "NA"))
+    TRUE ~ "NA")) %>% 
+  distinct(interview_key, .keep_all = TRUE)
 
 
 LCSENdata %>% 

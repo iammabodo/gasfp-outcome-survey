@@ -170,10 +170,7 @@ CommunityParticipation %>%
   group_by(RespGender, CommunityParticipation) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  select(-Count) %>%
-  pivot_wider(names_from = CommunityParticipation, values_from = Percentage) %>%
-  mutate(Indicator = "Community Meaningful Participation") %>%
-  select(Indicator, everything())
+  filter(CommunityParticipation == "Meaningful Participation")
 
 
 
