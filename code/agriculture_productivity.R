@@ -8,75 +8,7 @@ library(labelled)
 library(expss)
 library(readxl)
 
-# Import first roster data
-PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>% 
-  # Selecting required columns
-  select(interview_key, Roster_PSAMSRice_id, 
-         PSAMSRiceHarvestsNmb, PSAMSNutCropIncr, PSAMSPHLCommEnough,
-         PSAMSRiceInputsMN, PSAMSRiceSell, PSAMSRiceSellTime, PSAMSRiceSellQuant,
-         PSAMSRiceSellMN, PSAMSRiceRevenue, PSAMSRiceIncome, Income) %>% 
-  # Mutate variables to have more descriptive values
-  mutate(PSAMSNutCropIncr = case_when(
-    PSAMSNutCropIncr == 1 ~ "More",
-    PSAMSNutCropIncr == 2 ~ "Less",
-    PSAMSNutCropIncr == 3 ~ "The Same",
-    TRUE ~ "Not Applicable"),
-    PSAMSPHLCommEnough = case_when(
-    PSAMSPHLCommEnough == 1 ~ "Yes",
-    TRUE ~ "No"),
-    PSAMSRiceSell = case_when(
-    PSAMSRiceSell == 1 ~ "Yes",
-    PSAMSRiceSell == 0 ~ "No",
-    TRUE ~ "Don't Know"),
-    RiceType = case_when(
-    Roster_PSAMSRice_id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice")) %>% 
-  # Change PSAMSRiceSellMN, PSAMSRiceSellQuant, PSAMSRiceInputsMN, PSAMSRiceRevenue, PSAMSRiceIncome, Income to numeric
-  mutate(PSAMSRiceSellMN = as.numeric(PSAMSRiceSellMN),
-         PSAMSRiceSellQuant = as.numeric(PSAMSRiceSellQuant),
-         PSAMSRiceInputsMN = as.numeric(PSAMSRiceInputsMN),
-         PSAMSRiceRevenue = as.numeric(PSAMSRiceRevenue),
-         PSAMSRiceIncome = as.numeric(PSAMSRiceIncome),
-         Income = as.numeric(Income))
-
-# Mutate different prices for organic and non-organic rice
-PSAMSRicePrice <- PSAMSRiceRoster %>% 
-  group_by(RiceType) %>%
-  summarise(meanprice = mean(PSAMSRiceSellMN, na.rm = TRUE),
-            sdprice = sd(PSAMSRiceSellMN, na.rm = TRUE),
-            maxprice = max(PSAMSRiceSellMN, na.rm = TRUE),
-            minprice = min(PSAMSRiceSellMN, na.rm = TRUE),
-            n = n())
-
-# Import second roster data
-PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx") %>% 
-  # Selecting required columns
-  select(interview_key, Roster_PSAMSRice_id, Roster_HarvestNmb_id, 
-         PSAMSPHLCommArea, PSAMSPHLCommArea_Unit, PSAMSPHLCommArea_Unit_OTH, PSAMSPHLCommQuant,
-         PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>% 
-  # Rename PSAMSPHLCommArea_Unit to have more descriptive values
-  mutate(PSAMSPHLCommArea_Unit = case_when(
-    PSAMSPHLCommArea_Unit == 1 ~ "Square Meter",
-    PSAMSPHLCommArea_Unit == 2 ~ "Acre",
-    PSAMSPHLCommArea_Unit == 3 ~ "Kong",
-    PSAMSPHLCommArea_Unit == 4 ~ "Hectare",
-    TRUE ~ "Other"),
-    RiceType = case_when(
-    Roster_PSAMSRice_id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice")) %>% 
-  # Change PSAMSPHLCommArea, PSAMSPHLCommQuant, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to numeric
-  mutate(PSAMSPHLCommArea = as.numeric(PSAMSPHLCommArea),
-         PSAMSPHLCommQuant = as.numeric(PSAMSPHLCommQuant),
-         PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
-         PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>% 
-  # Chnage PSAMSPHLCommArea to hectare
-  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>% 
-  # Change PSAMSPHLCommArea to hectare if the unit is in square meter
-  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
-  # Calculate the percentage of post harvest losses
-  mutate(PSAMSPHLCommQntLostPerc = (PSAMSPHLCommQntLost / PSAMSPHLCommQuant) * 100) %>% 
-  # Round to 2 significant digits
-  mutate(PSAMSPHLCommQntLostPerc = round(PSAMSPHLCommQntLostPerc, 2)) 
+ 
 
 
 # Import the data with other relevant variables from the household data set
@@ -231,13 +163,13 @@ TotalIncome <- SAMSRoster %>%
 # Calculate mean income from rice production per household
 HHLevelData %>% 
   group_by(RiceType) %>%
-  summarise(MeanIncome = mean(RiceIncomeUSD,
+  summarise(MeanIncome = mean(TotalIncome,
                               na.rm = TRUE))
 
 # Calculate the mean household income from rice production
 HHLevelData %>% 
   group_by(RiceType) %>%
-  summarise(MeanIncome = mean(RiceIncomeUSD,
+  summarise(MeanIncome = mean(NewPSAMSRiceIncome,
                               na.rm = TRUE))
 
 HHSAMSRosterData <- HHLevelData %>% 
