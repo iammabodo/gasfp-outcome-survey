@@ -4,8 +4,8 @@ library(labelled)
 
 # Import data for the calculation of all cross cutting indicators
 
-CrossCuttingData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
-  select(HHID, HHHSex, HHHEthnicity, HHList, HHHLanguage, IDPoor, HHBaseline, # Disagregation variables
+CrossCuttingData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
+  select(HHID, SEX_HHH, HHHEthnicity, HHList, HHHLanguage, IDPoor, HHBaseline, # Disagregation variables
          starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity"))
 
 

@@ -9,10 +9,9 @@ library(expss)
 library(readxl)
 
 # Import first roster data
-SAMSRoster1 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx", 
-    sheet = "Roster_PSAMSRice") %>% 
+PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, Roster_PSAMSRice__id, 
+  select(interview_key,  Roster_PSAMSRice_id, 
          PSAMSRiceHarvestsNmb, PSAMSNutCropIncr, PSAMSPHLCommEnough,
          PSAMSRiceInputsMN, PSAMSRiceSell, PSAMSRiceSellTime, PSAMSRiceSellQuant,
          PSAMSRiceSellMN, PSAMSRiceRevenue, PSAMSRiceIncome, Income) %>% 
@@ -30,14 +29,13 @@ SAMSRoster1 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx",
     PSAMSRiceSell == 0 ~ "No",
     TRUE ~ "Don't Know"),
     RiceType = case_when(
-    Roster_PSAMSRice__id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice__id == 2 ~ "Non Organic Rice"))
+    Roster_PSAMSRice_id == 1 ~ "Organic Rice",
+    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice"))
 
 # Import second roster data
-SAMSRoster2 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx", 
-    sheet = "Roster_Q15_21HarvestNmb") %>% 
+PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, Roster_PSAMSRice__id, Roster_HarvestNmb__id, 
+  select(interview_key, Roster_PSAMSRice_id, Roster_HarvestNmb_id, 
          PSAMSPHLCommArea, PSAMSPHLCommArea_Unit, PSAMSPHLCommArea_Unit_OTH, PSAMSPHLCommQuant,
          PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>% 
   # Rename PSAMSPHLCommArea_Unit to have more descriptive values
@@ -48,13 +46,13 @@ SAMSRoster2 <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx",
     PSAMSPHLCommArea_Unit == 4 ~ "Hectare",
     TRUE ~ "Other"),
     RiceType = case_when(
-    Roster_PSAMSRice__id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice__id == 2 ~ "Non Organic Rice"))
+    Roster_PSAMSRice_id == 1 ~ "Organic Rice",
+    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice"))
 
 # Import the data with other relevant variables from the household data set
-HHLevelData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
+HHLevelData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
-  select(interview__key, HHID, ADMIN4Name, ACName, HHBaseline, HHList, HHHSex,
+  select(interview_key, HHID, ADMIN4Name, ACName, HHBaseline, HHList, SEX_HHH,
          HHHEducation, HHHEthnicity, HHHLanguage, IDPoor, HHIncTot, contains("SAMSPHL")) %>% 
   # Rename ADMIN4Name, ACName, HHBaseline, HHHEducation, HHHEthnicity, HHHLanguage, IDPoor and HHHSex to have more descriptive values
   mutate(ADMIN4Name = case_when(
@@ -104,12 +102,12 @@ HHLevelData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
     TRUE ~ "Refuse / prefer not to answer"),
     HHIncTot = as.numeric(HHIncTot)) %>% 
   # Pivot longer using PSAMSPHLCommN_1 and PSAMSPHLCommN_2 variables
-  pivot_longer(cols = c("PSAMSPHLCommN__1", "PSAMSPHLCommN__2"), 
+  pivot_longer(cols = c("PSAMSPHLCommN_1", "PSAMSPHLCommN_2"), 
                names_to = "RiceType", 
                values_to = "Produced") %>%
   # Mutate the RiceType variable to be more descriptive
-  mutate(RiceType = case_when(RiceType == "PSAMSPHLCommN__1" ~ "Organic Rice",
-                              RiceType == "PSAMSPHLCommN__2" ~ "Non Organic Rice")) %>%
+  mutate(RiceType = case_when(RiceType == "PSAMSPHLCommN_1" ~ "Organic Rice",
+                              RiceType == "PSAMSPHLCommN_2" ~ "Non Organic Rice")) %>%
   # Mutate the Produced variable to be more descriptive
   mutate(Produced = case_when(Produced == 1 ~ "Yes",
                               TRUE ~ "No")) #%>%
@@ -121,12 +119,12 @@ HHLevelData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>%
 # Join the SAMSRoster1 and SAMSRoster2 data sets
 SAMSRoster <- left_join(SAMSRoster1, 
                         SAMSRoster2, 
-                        by = c("interview__key", "RiceType"))
+                        by = c("interview_key", "RiceType"))
 
 # Join the SAMSRoster and HHLevelData data sets
 HHSAMSRoster <- left_join(HHLevelData, 
                           SAMSRoster,
-                          by = c("interview__key", "RiceType"))
+                          by = c("interview_key", "RiceType"))
 
 ## Calculate the indicators
 
