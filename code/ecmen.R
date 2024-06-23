@@ -5,60 +5,28 @@ library(expss)
 library(janitor)
 library(gt)
 library(readxl)
+library(extrafont)
 
 
 # Source the functions.R file
 #source("~/Work 2023 -Eltone/General M&E/GASFP Project/gasfp-outcome-survey/code/functions.R")
 
 # Defining the Minimum Expenditure Basket (MEB) -----------------------------------
-MEB <- 375158 # This is the new MEB for Cambodia. We might need to use the previous MEB for comparison.
-SMEB <- 180648 # This is the new SMEB for Cambodia.We might need to use the previous SMEB for comparison.
+NewMEB <- 375158 # This is the new MEB for Cambodia. 
+NewSMEB <- 180648 # This is the new SMEB for Cambodia.
+OldMEB <- 323614 # This is the old MEB for Cambodia. 
+OldSMEB <- 159181 # This is the old SMEB for Cambodia.
 
   
 # Loading data and calculating ECMEN --------------------------------------------
-ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
+ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>% 
   # Select relevant columns to calculate ECMEN
-  select(ADMIN4Name, ACName, HHID, HHList, HHBaseline, 
-         starts_with("HHExp"), HHHEthnicity, HHHLanguage,
-         IDPoor, SEX_HHH) %>% 
-  # Assign labels to grouping variables categories
-  mutate(HHBaseline = case_when(
-        HHBaseline == 1 ~ "Baseline Members",
-        HHBaseline == 0 ~ "New Members",
-        TRUE ~ "Don't Know",),
-        HHHEthnicity = case_when(
-        HHHEthnicity == 1 ~ "Khmer",
-        TRUE ~ "Non Khmer"),
-        HHHLanguage = case_when(
-        HHHLanguage == 1 ~ "Khmer",
-        HHHLanguage == 2 ~ "Bunong",
-        TRUE ~ "Other"),
-        IDPoor = case_when(
-        IDPoor == 1 ~ "Yes",
-        TRUE ~ "No"),
-        HHHSex = case_when(
-        SEX_HHH == 0 ~ "Female",
-        SEX_HHH == 1 ~ "Male"),
-        ADMIN4Name = case_when(
-        ADMIN4Name == 100 ~ "Nang Khi Loek",
-        ADMIN4Name == 200 ~ "Ou Buon Leu",
-        ADMIN4Name == 300 ~ "Roya",
-        ADMIN4Name == 400 ~ "Sokh Sant",
-        ADMIN4Name == 500 ~ "Sre Huy",
-        ADMIN4Name == 600 ~ "Sre Sangkom",
-        TRUE ~ "Other"),
-        ACName = case_when(
-        ACName == 1 ~ "Phum Srae Huy",
-        ACName == 2 ~ "Samak Mean Rith Rung Roeung",
-        ACName == 3 ~ "Samaki Phum Toul",
-        ACName == 4 ~ "Apiwat Mean Chey",
-        ACName == 5 ~ "Samaki Rik Chom Roeung")) %>%
-  # Remove outliers
-  # find_outliers() %>% Uncomment this line to remove outliers
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity, HHHLanguage, 
+         starts_with("HHExp")) %>%
   # mutate a variable by summing across variables that contains _7
-  mutate(TotalFoodExp = rowSums(across(contains("_7"))),
-         TotalNonFoodExp = rowSums(across(contains("_1M"))),
-         TotalNonFoodIntExp = rowSums(across(contains("_6M")))) %>% 
+  mutate(TotalFoodExp = rowSums(across(ends_with("_7D"))),
+         TotalNonFoodExp = rowSums(across(ends_with("_1M"))),
+         TotalNonFoodIntExp = rowSums(across(ends_with("_6M")))) %>% 
   # Convert TotalFoodExp to monthly by dividing by 7 and multiplying by 30
   mutate(TotalFoodExp = TotalFoodExp * 30/7) %>%
   # Convert TotalNonFoodIntExp to monthly by dividing by 6
@@ -69,67 +37,101 @@ ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
   mutate(TotalExpPerCapita = TotalExp / HHList) %>%
   # Convert the TotalExpPerCapita to USD
   mutate(TotalExpPerCapitaUSD = TotalExpPerCapita / 4100) %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
   # Create the ECMEN variable by comparing the TotalExpPerCapita by the Minimum Expenditure Basket (MEB)
   mutate(ECMEN = case_when(
-    TotalExpPerCapita >=  MEB ~ "Able to meet essential needs",
-    TotalExpPerCapita < MEB ~ "Unable to meet essential needs"
+    TotalExpPerCapita >=  OldMEB ~ "Able to meet essential needs",
+    TotalExpPerCapita < OldMEB ~ "Unable to meet essential needs"
   )) %>%
   # Calculate survival ecmen
   mutate(SurvivalECMEN = case_when(
-    TotalExpPerCapita >=  SMEB ~ "Able Survive",
-    TotalExpPerCapita < SMEB ~ "Unable to Survive"
+    TotalExpPerCapita >=  OldSMEB ~ "Able Survive",
+    TotalExpPerCapita < OldSMEB ~ "Unable to Survive"
   ))
 
+############################################################END OF DATA CLEANING##############################################################################
 
-# Compute the percentage of households that are able to meet essential needs
+# Indicator 1: Overall Percentage of households that are unable to meet essential needs
+
 OveralECMEN <- ECMENdata %>% 
   count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2))
-
-IDPoorECMEN <- ECMENdata %>% 
-  group_by(IDPoor) %>%
-  count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
+  mutate(Percentage = round(100 * n / sum(n), 2)) #%>% 
   # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs")
+  #filter(ECMEN == "Unable to meet essential needs")
+  
+
+# Indicator 2: Percentage of households that are unable to meet essential needs, dis aggregated gender of the household heard
 
 HHHSexECMEN <- ECMENdata %>% 
   group_by(HHHSex) %>%
   count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
+  mutate(Percentage = round(100 * n / sum(n), 2)) #%>% 
   # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs")
+  filter(ECMEN == "Unable to meet essential needs") #%>% 
+  # Pivot wider
+  pivot_wider(names_from = HHHSex, 
+              values_from = Percentage)
+  
+  # Indicator 3: Percentage of households that are unable to meet essential needs, dis aggregated by ethnicity
+  
+  HHHEthnicityECMEN <- ECMENdata %>%
+    group_by(HHHEthnicity) %>%
+    count(ECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
+    # Filter out the households that are not able to meet essential needs
+    filter(ECMEN == "Unable to meet essential needs")
+  
+  # Indicator 4: Average economic per capita capacity 
+  ECMENIncTot <- ECMENdata %>%
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
+  
+  # Indicator 5: Average economic per capita capacity, dis aggregated by gender of the household head
+  
+  ECMENIncHHHSex <- ECMENdata %>%
+    group_by(HHHSex) %>%
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
+  
+  # Indicator 6: Average economic per capita capacity, dis aggregated by Ethinicity of the household head
+  ECMENIncHHHEthnicity <- ECMENdata %>%
+    group_by(HHHEthnicity) %>%
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
+  
+############################################################END OF INDICATOR CALCULATION########################################  
 
-HHHEthnicityECMEN <- ECMENdata %>%
-  group_by(HHHEthnicity) %>%
-  count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
-  # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs")
+## INDICATOR VISUALISATIONS
+  
+  HHHSexECMEN %>% 
+  ggplot(aes(ECMEN, Percentage)) +
+  geom_col(width = 0.5) + 
+  facet_wrap(~HHHSex) +
+  labs(title = "Female headed households are more likely to be unable to meet essential", 
+       x = "Economic Capacity To Meet Essential Needs", 
+       y = "Percentage of Households") +
+  # Add margins to the labs and the title of the graph
+  theme(text = element_text(family = "Times New Roman"),
+        axis.text.x = element_text(margin = margin(t = 20)),
+        axis.text.y = element_text(margin = margin(r = 20)),
+        axis.title.x = element_text(margin = margin(t = 20)),
+        axis.title.y = element_text(margin = margin(r = 20)),
+        plot.title = element_text(margin = margin(b = 30, t = 30),
+                                  color = "#2A93FC",
+                                  size = 16),
+        strip.text.x = element_text(margin = margin(b = 10, t = 10),
+                                    size = 16)) +
+  # Add a theme
+  theme_classic()
+  # Select the facet wrap element and make it bigger
+
+
+ECMENdata %>% 
+  ggplot(aes(HHHSex, ECMEN)) +
+  geom_count()
+
+ECMENdata %>%
+  filter(TotalExpPerCapitaUSD < 500) %>%
+  ggplot(aes(HHList, TotalExpPerCapitaUSD,
+             color = HHHSex)) +
+  geom_point(position = "jitter")
   
 
-HHHLanguageECMEN <- ECMENdata %>%
-  group_by(HHHLanguage) %>%
-  count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
-  # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs")
 
-# Compute the average economic capacity of households
-ECMENIncTot <- ECMENdata %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
-
-ECMENIncIDPoor <- ECMENdata %>%
-  group_by(IDPoor) %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
-ECMENIncHHHSex <- ECMENdata %>%
-  group_by(HHHSex) %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())
-
-ECMENIncHHHEthnicity <- ECMENdata %>%
-  group_by(HHHEthnicity) %>%
-  summarise(AvgEconomicCapacityUSD = mean(TotalExpPerCapitaUSD, na.rm = TRUE),
-            n = n())

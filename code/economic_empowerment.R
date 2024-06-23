@@ -8,14 +8,14 @@ library(gt)
     
 # Import the data
 
-EconomicEmpowermentData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
+EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate the percentage of men and women reporting to have economic empowerment
-  select(HHID, HHHSex, HHHEthnicity, HHHLanguage, IDPoor, # Dis aggregation variables
+  select(HHID, Sex, HHHEthnicity, HHHLanguage, IDPoor, # Dis aggregation variables
          RFinancSitGender, HHGenMembers, RFinancSit, RFinancSitRsn, LadderToday, Ladder1YearAgo, LadderReason) %>% # Indicator calculation variables
   # Mutate the variable to have meaningful labels
-  mutate(HHHSex = case_when(
-    HHHSex == 0 ~ "Female",
-    HHHSex == 1 ~ "Male"),
+  mutate(Sex = case_when(
+    Sex == 0 ~ "Female",
+    Sex == 1 ~ "Male"),
     HHHEthnicity = case_when(
     HHHEthnicity == 1 ~ "Khmer",
     TRUE ~ "Non Khmer"),
@@ -41,13 +41,26 @@ EconomicEmpowermentData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xl
 
 
 # Calculate the percentage of people reporting that the financial situation has improved, stayed the same, or worsened
-EconomicEmpowermentData %>% 
-  group_by(IDPoor, EconomicEmpowerment) %>% # To include the disaggregation by gender of the respondent here once we have the final data
+GenderEconomicEmpGap <- EconomicEmpowermentData %>% 
+  group_by(Sex, EconomicEmpowerment) %>% # To include the disaggregation by gender of the respondent here once we have the final data
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  # round the percentage to 2 decimal places
+  mutate(Percentage = round(Percentage, 2)) #%>%
+  filter(EconomicEmpowerment == "Economically Empowered")
 
+  
+# Visualise the table using ggplot 
+GenderEconomicEmpGap %>%
+  ggplot(aes(EconomicEmpowerment, Percentage)) +
+  geom_col(colour = ) + 
+  facet_wrap(~Sex) + 
+  theme_bw()
+  
 
-
+EconomicEmpowermentData %>% 
+  ggplot(aes(HHHLanguage,EconomicEmpowerment)) +
+  geom_count()
 
 
 
