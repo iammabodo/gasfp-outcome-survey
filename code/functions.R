@@ -1,6 +1,6 @@
 library(tidyverse)
 library(gt)
-
+   
 # Defining the function to find and remove outliers
 
 find_outliers <- function(data) {

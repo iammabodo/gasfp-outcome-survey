@@ -5,7 +5,7 @@ library(readxl)
 library(janitor)
 library(gt)
 
-
+    
 # Import the data
 
 EconomicEmpowermentData <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 

@@ -3,7 +3,7 @@ library(labelled)
 library(expss)
 library(readxl)
 
-
+  
 #Import the data set
 LCSENdata <- read_excel("data/Copy of Data_Format_WFP_GASFP_WO8.xlsx") %>% 
   #Select necessary variables, in this case the livelihoods coping strategies and disaggretion variables

@@ -40,7 +40,7 @@ CRCSData %>%
   summarise(AverageCRCSScore = mean(CRCSScore, na.rm = T)) %>% 
   # Ungroup the variables - to enable further analysis
   ungroup()
-
+   
 # Calculate the percent of household in different CRCSCategory
 CRCSData %>% 
   group_by(CRCSCategory, HHHEthnicity) %>% 

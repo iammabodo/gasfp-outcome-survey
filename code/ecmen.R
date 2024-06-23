@@ -14,7 +14,7 @@ library(readxl)
 MEB <- 375158 # This is the new MEB for Cambodia. We might need to use the previous MEB for comparison.
 SMEB <- 180648 # This is the new SMEB for Cambodia.We might need to use the previous SMEB for comparison.
 
-
+  
 # Loading data and calculating ECMEN --------------------------------------------
 ECMENdata <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate ECMEN
