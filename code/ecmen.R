@@ -6,6 +6,7 @@ library(janitor)
 library(gt)
 library(readxl)
 library(extrafont)
+library(ggtext)
 
 
 # Source the functions.R file
@@ -23,7 +24,18 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
   # Select relevant columns to calculate ECMEN
   select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity, HHHLanguage, 
          starts_with("HHExp")) %>%
-  # mutate a variable by summing across variables that contains _7
+  # Rename some of the variables we will be using
+  rename(HHExpFAnimMeat_GiftAid_7D = HHExpFAnimMeat_GiftAid,
+         HHExpFAnimMeat_Own_MN_7D = HHExpFAnimMeat_Own_MN,
+         HHExpFAnimFish_GiftAid_MN_7D =  HHExpFAnimFish_GiftAid_MN,
+         HHExpNFAlcTobac_Purch_MN_1M = HHExpNFAlcTobac_Purch_MN_1,
+         HHExpNFAlcTobac_GiftAid_MN_1M = HHExpNFAlcTobac_GiftAid_MN,
+         HHExpNFMedServ_GiftAid_MN_6M = HHExpNFMedServ_GiftAid_MN_6,
+         HHExpNFMedGood_GiftAid_MN_6M = HHExpNFMedGood_GiftAid_MN_6,
+         HHExpNFEduGood_GiftAid_MN_6M = HHExpNFEduGood_GiftAid_MN,
+         HHExpNFHHSoft_GiftAid_MN_6M = HHExpNFHHSoft_GiftAid_MN_6,
+         HHExpNFHHMaint_GiftAid_MN_6M = HHExpNFHHMaint_GiftAid_MN) %>%
+  # mutate Total Food Expenditure, Total Non Food Expenditure and Total Non Food Intermediate Expenditure by summing across relevant variables
   mutate(TotalFoodExp = rowSums(across(ends_with("_7D"))),
          TotalNonFoodExp = rowSums(across(ends_with("_1M"))),
          TotalNonFoodIntExp = rowSums(across(ends_with("_6M")))) %>% 
@@ -91,7 +103,7 @@ HHHSexECMEN <- ECMENdata %>%
     group_by(HHHSex) %>%
     summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
   
-  # Indicator 6: Average economic per capita capacity, dis aggregated by Ethinicity of the household head
+  # Indicator 6: Average economic per capita capacity, dis aggregated by Ethnicity of the household head
   ECMENIncHHHEthnicity <- ECMENdata %>%
     group_by(HHHEthnicity) %>%
     summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
@@ -117,11 +129,30 @@ HHHSexECMEN <- ECMENdata %>%
                                   color = "#2A93FC",
                                   size = 16),
         strip.text.x = element_text(margin = margin(b = 10, t = 10),
-                                    size = 16)) +
-  # Add a theme
-  theme_classic()
-  # Select the facet wrap element and make it bigger
+                                    size = 16)) 
 
+subtitle_text <- "Number of households <span style='color:#00BFC4'>**Male**</span> headed and 
+<span style='color:#F8766D'>**Female**</span> headed" 
+  
+  # Select the facet wrap element and make it bigger
+  ECMENdata %>% 
+  filter(TotalExpPerCapitaUSD < 500) %>%
+    ggplot(aes(x = ACName, 
+               y = TotalExpPerCapitaUSD, 
+               fill = HHHSex)) +
+    geom_point(position = position_jitterdodge(), 
+               size = 4,
+               alpha = 0.75,
+               shape = 21) + 
+    theme_minimal(base_size = 14,
+                  base_family = "Times New Roman") + # Should Learn How to use different fonts
+    theme(plot.subtitle = ggtext::element_markdown(),
+          legend.position = "none") + 
+    labs(title = "Per Capita Expenditure",
+         x = "Agriculture Cooperative Name",
+         y = "Expenditure in USD",
+         fill = "Gender",
+         subtitle = subtitle_text)
 
 ECMENdata %>% 
   ggplot(aes(HHHSex, ECMEN)) +
