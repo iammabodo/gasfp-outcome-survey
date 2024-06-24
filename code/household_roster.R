@@ -202,6 +202,18 @@ PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx")
   # Round to 2 significant digits
   mutate(PSAMSPHLCommQntLostPerc = round(PSAMSPHLCommQntLostPerc, 2))
 
+# Full Household rice production roster join the 2 PSAMSRiceRoster and PSAMSHarvestRoster
+
+ArgricProductionRoster <- left_join(PSAMSRiceRoster, PSAMSHarvestRoster, by = c("interview_key", "RiceType")) 
+  # Calculate the level of annual agricultural production per farmer
+  
+NewArgricProductionRoster <- ArgricProductionRoster%>%  
+  group_by(interview_key) %>%
+  mutate(AnnualProduction = sum(PSAMSPHLCommQuant)) 
+
+
+NewArgricProductionRoster %>% 
+  filter(AnnualProduction > PSAMSPHLCommQuant)
 
 # Now we have all the data we need to calculate all the indicators. Now let us merge all the different data sets, starting with the household roster
 

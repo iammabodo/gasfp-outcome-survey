@@ -49,199 +49,100 @@ PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx")
     Roster_PSAMSRice_id == 1 ~ "Organic Rice",
     Roster_PSAMSRice_id == 2 ~ "Non Organic Rice"))
 
-
-# Import the data with other relevant variables from the household data set
-HHLevelData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
-  # Selecting required columns
-  select(interview_key, HHID, ADMIN4Name, ACName, HHBaseline, HHList, SEX_HHH, SEX_Resp,
-         HHHEducation, HHHEthnicity, HHHLanguage, IDPoor, HHIncTot, contains("SAMSPHL")) %>% 
-  # Rename ADMIN4Name, ACName, HHBaseline, HHHEducation, HHHEthnicity, HHHLanguage, IDPoor and HHHSex to have more descriptive values
-  mutate(ADMIN4Name = case_when(
-    ADMIN4Name == 100 ~ "Nang Khi Loek",
-    ADMIN4Name == 200 ~ "Ou Buon Leu",
-    ADMIN4Name == 300 ~ "Roya",
-    ADMIN4Name == 400 ~ "Sokh Sant",
-    ADMIN4Name == 500 ~ "Srae Huy",
-    ADMIN4Name == 600 ~ "Srae Sangkom",
-    TRUE ~ "Other"),
-    ACName = case_when(
-    ACName == 1 ~ "Phum Srae Huy",
-    ACName == 2 ~ "Samaki Mean Rith Rung Roeung",
-    ACName == 3 ~ "Samaki Phum Toul",
-    ACName == 4 ~ "Apiwat Mean Chey",
-    ACName == 5 ~ "Samaki Rik Chom Roeun"),
-    HHBaseline = case_when(
-    HHBaseline == 1 ~ "Baseline Members",
-    HHBaseline == 0 ~ "New Members",
-    TRUE ~ "Don't Know"),
-    HHHEducation = case_when(
-    HHHEducation == 1 ~ "No Schooling",
-    HHHEducation == 2 ~ "Some Pre-Primary",
-    HHHEducation == 3 ~ "Some Primary",
-    HHHEducation == 4 ~ "Completed Primary",
-    HHHEducation == 5 ~ "Some Secondary",
-    HHHEducation == 6 ~ "Completed Secondary",
-    HHHEducation == 7 ~ "Some High School",
-    HHHEducation == 8 ~ "Completed High School",
-    HHHEducation == 9 ~ "Vocational",
-    HHHEducation == 10 ~ "Some University",
-    HHHEducation == 11 ~ "Completed University",
-    TRUE ~ "Don't Know"),
-    HHHEthnicity = case_when(
-    HHHEthnicity == 3 | HHHEthnicity == 11 | HHHEthnicity == 12  ~ "Ethnic Minority",
-    HHHEthnicity == 999 ~ "Other",
-    HHHEthnicity == 888 ~ "Don't Know / prefer not to answer",
-    TRUE ~ "Indigenous"),
-    HHHLanguage = case_when(
-    HHHLanguage == 1 ~ "Khmer",
-    HHHLanguage == 2 ~ "Bunong",
-    TRUE ~ "Other"),
-    IDPoor = case_when(
-    IDPoor == 1 ~ "IDPoor",
-    IDPoor == 0 | IDPoor == 2 ~ "Not IDPoor",
-    IDPoor == 888 ~ "Don't Know",
-    TRUE ~ "Refuse / prefer not to answer"),
-    RespSex = case_when(
-    SEX_Resp == 0 ~ "Female",
-    SEX_Resp == 1 ~ "Male"),
-    HHHSex = case_when(
-    SEX_HHH == 0 ~ "Female",
-    SEX_HHH == 1 ~ "Male"), 
-    HHHSex = if_else(is.na(HHHSex), RespSex, HHHSex),
-    HHIncTot = as.numeric(HHIncTot)) %>% 
-  select(-c(SEX_Resp, SEX_HHH)) %>% 
-  # # Pivot longer using PSAMSPHLCommN_1 and PSAMSPHLCommN_2 variables
-   pivot_longer(cols = c("PSAMSPHLCommN_1", "PSAMSPHLCommN_2"),
-                names_to = "RiceType",
-                values_to = "Produced") %>%
-   # Mutate the RiceType variable to be more descriptive
-   mutate(RiceType = case_when(RiceType == "PSAMSPHLCommN_1" ~ "Organic Rice",
-                              RiceType == "PSAMSPHLCommN_2" ~ "Non Organic Rice")) %>%
-  # Mutate the Produced variable to be more descriptive
-    mutate(Produced = case_when(Produced == 1 ~ "Yes",
-                             TRUE ~ "No")) %>%
-  # Filter out the rows where the Produced variable is "Yes"
-    #filter(Produced == "Yes") %>% 
-  # Select only unique values of the interview_key
-  # distinct(interview_key, .keep_all = TRUE) %>% 
-  # Merge with TotalIncome data
-  left_join(TotalIncome, by = "interview_key") %>%
-  # Join with the HHDisabRoster data
-  left_join(HHDisabRoster, by = "interview_key") %>%
-  # Calculate rice income in USD
-  mutate(RiceIncomeUSD = round((TotalIncome / 4100),2))
-
-## Calculate the percentage of farmers reporting increase in the production of rice (Indicator 1)
-# 1. Non Organic Rice
-SAMSRoster %>% 
-  filter(RiceType == "Non Organic Rice") %>%
-  group_by(PSAMSNutCropIncr) %>% 
-  summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(PSAMSNutCropIncr == "More")
-
-# 2. Organic Rice
-SAMSRoster %>% 
-  filter(RiceType == "Organic Rice") %>%
-  group_by(PSAMSNutCropIncr) %>% 
-  summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(PSAMSNutCropIncr == "More")
-
-# 3. All Rice Types
-SAMSRoster %>% 
-  group_by(PSAMSNutCropIncr) %>% 
-  summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(PSAMSNutCropIncr == "More")
-
-
-## Calculating the average post harvest losses (Indicator 2)
-
-# Calculate the average post harvest losses per individual farmer
-AverageLossperfarmer <- PSAMSHarvestRoster %>% 
-  group_by(interview_key) %>% 
-  group_by(RiceType) %>%
-  summarise(AvgPostHarvestLosses = mean(PSAMSPHLCommQntLostPerc,
-                                        na.rm = TRUE))
-
-
-# Calculate the average post harvest losses for all the farmers
-AverageLossperfarmer %>% 
-  summarise(AvgPostHarvestLosses = mean(AvgPostHarvestLosses,
-                                        na.rm = TRUE))
-
-
-# Calculate the total household income from rice production (Indicator 3). ## Please update this code here
-
+## Merge the rice two rosters
 SAMSRoster <- left_join(PSAMSRiceRoster, 
                         PSAMSHarvestRoster,
                         by = c("interview_key", "RiceType")) %>% 
-  # Mutate the revenue from rice production
-  mutate(NewPSAMSRiceRevenue = if_else(
-    RiceType == "Organic Rice", PSAMSPHLCommQuant * 1106, PSAMSPHLCommQuant * 1096)) %>% 
-  # Mutate the income from rice production
-  mutate(NewPSAMSRiceIncome = NewPSAMSRiceRevenue - PSAMSRiceInputsMN) 
-
-SAMSRoster %>% 
-  # groub by rice type
-  group_by(RiceType) %>%
-  # Calcualte the average rice produced
-  summarise(AvgRiceProduced = mean(PSAMSPHLCommQuant,
-                                   na.rm = TRUE),
-            N = n())
-
-# Calculate the total household income from rice production
-TotalIncome <- SAMSRoster %>% 
-  group_by(interview_key) %>% 
-  summarise(TotalIncome = sum(NewPSAMSRiceIncome,
-                              na.rm = TRUE))
+  # Aggregate Non-Organic rice production at individual household level
+  group_by(interview_key, RiceType) %>%
+  summarise(total_production = sum(PSAMSPHLCommQuant),.groups = "drop") %>% 
+  left_join(PSAMSRiceRoster, by = c("interview_key", "RiceType")) %>% 
+  left_join(PSAMSHarvestRoster, by = c("interview_key", "RiceType")) %>% 
+  # Mutate vPSAMSRiceSellQuant,PSAMSRiceSellQuant, PSAMSRiceSellMN, PSAMSRiceInputsMN to be numeric
+  mutate(PSAMSRiceSellQuant = as.numeric(PSAMSRiceSellQuant),
+         PSAMSRiceSellMN = as.numeric(PSAMSRiceSellMN),
+         PSAMSRiceInputsMN = as.numeric(PSAMSRiceInputsMN),
+         PSAMSPHLCommArea = as.numeric(PSAMSPHLCommArea))
 
 
-# Calculate mean income from rice production per household
-HHLevelData %>% 
-  group_by(RiceType) %>%
-  summarise(MeanIncome = mean(TotalIncome,
-                              na.rm = TRUE))
+# Load in the household full roster data
+HHFullAgricRoster <- read_excel("data/FullHHRosterClean.xlsx") %>% 
+  # Select the necessary variables for this analysis
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity, HHHLanguage) %>% 
+  # Distinct the data
+  distinct(interview_key, .keep_all = TRUE)
 
-# Calculate the mean household income from rice production
-HHLevelData %>% 
-  group_by(RiceType) %>%
-  summarise(MeanIncome = mean(NewPSAMSRiceIncome,
-                              na.rm = TRUE))
+## Calculate income from rice production
+RiceIncomeRoster <- SAMSRoster %>% 
+  distinct(interview_key, RiceType, .keep_all = TRUE) %>% 
+  select(interview_key, RiceType, total_production, PSAMSPHLCommQuant, PSAMSPHLCommArea, PSAMSNutCropIncr,
+         PSAMSRiceSellQuant, PSAMSPHLCommArea_Unit, PSAMSRiceSellMN, PSAMSRiceInputsMN, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>%
+  # Mutate rice revenue
+  mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1096, total_production * 1106)) %>% 
+  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>%
+  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
+  # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
+  mutate(PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
+         PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
+  # Mutate PSAMSRiceIncome
+  mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>% 
+  # Change this income to USD
+  mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) 
 
-HHSAMSRosterData <- HHLevelData %>% 
-  # join with the SAMSRoster data
-  left_join(SAMSRoster, by = c("interview_key", "RiceType")) %>%
-  # Join with the TotalIncome data
-  left_join(TotalIncome, by = "interview_key") %>% 
-  select(-c(Roster_PSAMSRice_id.y, TotalIncome.y, Roster_PSAMSRice_id.x, TotalIncome.x))
+# Merge the HHFullAgricRoster with the RiceIncomeRoster
+HHFullAgricRoster <- left_join(HHFullAgricRoster, RiceIncomeRoster, by = "interview_key") %>% 
+  drop_na(RiceType)
 
-HHSAMSRosterData %>% 
-  # Group by RiceType
-  group_by(RiceType.y) %>%
-  # Calculate the mean income from rice production
-  summarise(MeanIncome = mean(NewPSAMSRiceIncome,
-                              na.rm = TRUE),
-            N = n()) %>% 
-  # Change the income to USD
-  mutate(MeanIncomeUSD = MeanIncome / 4100)
+####################################ICOME FROM RICE PRODUCTION############################################
 
-# Calculate average rice output by rice type
-SAMSRoster %>% 
+# Calculate average and median rice income for the total farmers
+HHFullAgricRoster %>% 
   group_by(RiceType) %>% 
-  summarise(AvgRiceProduced = mean(PSAMSPHLCommQuant,
-                                   na.rm = TRUE),
-            N = n())
+  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE))
 
+# Calculate average rice production per hectare
+HHFullAgricRoster %>% 
+  mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>% 
+  group_by(RiceType) %>%
+  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE))
 
-# Calculate agricultural land area under farming by rice type
-PSAMSHarvestRoster %>% 
+# Income by gender of household head
+HHFullAgricRoster %>% 
+  group_by(HHHSex, RiceType) %>% 
+  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE))
+
+# Income by Ethnicity of household head
+HHFullAgricRoster %>% 
+  group_by(HHHEthnicity, RiceType) %>% 
+  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE))
+
+####################################POST HARVEST LOSSES####################################################
+# Calculate average post harvest losses
+
+HHFullAgricRoster %>% 
+  mutate(AvgPostHarvestLoss = PSAMSPHLCommQntLost / PSAMSPHLCommQntHand) %>% 
   group_by(RiceType) %>% 
-  summarise(AvgLandArea = mean(PSAMSPHLCommArea,
-                              na.rm = TRUE),
-            TotalLandArea = sum(PSAMSPHLCommArea, na.rm = TRUE),
-            N = n())
+  summarise(AvgPostHarvestLoss = mean(AvgPostHarvestLoss, na.rm = TRUE))
+
+####################################INCREASE IN RICE PRODUCTION####################################################
+
+# Calculate the percentage of farmers reporting increase in rice production
+HHFullAgricRoster %>% 
+  group_by(PSAMSNutCropIncr) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
+
+# Calculate the percentage of farmers reporting increase in rice production, disagregated by gender of the household heard
+HHFullAgricRoster %>% 
+  group_by(PSAMSNutCropIncr, HHHSex) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
 
 
+
+
+  
