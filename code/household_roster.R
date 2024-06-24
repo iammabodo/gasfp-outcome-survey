@@ -24,8 +24,11 @@ HHRoster <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
     HHBaseline == 0 ~ "New Members",
     TRUE ~ "Don't Know",),
     HHHEthnicity = case_when(
-      HHHEthnicity == 1 ~ "Khmer",
-      TRUE ~ "Non Khmer"),
+      HHHEthnicity == 1 ~ "Ethnic Majority",
+      HHHEthnicity == 2  | HHHEthnicity == 4  | HHHEthnicity == 5 | 
+                           HHHEthnicity == 6 | HHHEthnicity == 7 | HHHEthnicity == 8 | 
+                           HHHEthnicity == 9 | HHHEthnicity == 10 ~ "Ethnic Minority",
+      TRUE ~ "Foreigners"),
     HHHLanguage = case_when(
       HHHLanguage == 1 ~ "Khmer",
       HHHLanguage == 2 ~ "Bunong",
@@ -57,6 +60,8 @@ HHRoster <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
   mutate(HHHSex = if_else(is.na(HHHSex), RespSex, HHHSex)) %>% 
   select(interview_key, HHID, HHList, HHBaseline, HHHEthnicity, HHHLanguage, IDPoor, HHHSex, RespSex, ADMIN4Name, everything(),
          -c(SEX_HHH, SEX_Resp)) %>% 
+  # Change everything that is character to factor
+  mutate_if(is.character, as.factor) %>%
   # # Pivot longer using PSAMSPHLCommN_1 and PSAMSPHLCommN_2 variables
   pivot_longer(cols = c("PSAMSPHLCommN_1", "PSAMSPHLCommN_2"),
                names_to = "RiceType",
