@@ -76,7 +76,6 @@ CRCSData %>%
   mutate(Percentage = (Count / sum(Count)) * 100)
 
 
-
 CRCSData %>% 
   # Group by HHHEthnicity, HHHLanguage, IDPoor, HHHSex
   group_by(HHHEthnicity) %>% 
@@ -90,8 +89,10 @@ CRCSData %>%
   group_by(CRCSCategory) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100)
-# Graph the results in a stacked bar chart
 
 
 #############################################INDICATOR VISUALISATION####################################################
-
+CRCSData %>% 
+  ggplot(aes(x = CRCSCategory)) +
+  geom_bar() +
+  theme_bw()

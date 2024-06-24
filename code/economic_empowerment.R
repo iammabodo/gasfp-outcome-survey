@@ -52,9 +52,9 @@ GenderEconomicEmpGap <- EconomicEmpowermentData %>%
   
 # Visualise the table using ggplot 
 GenderEconomicEmpGap %>%
-  ggplot(aes(EconomicEmpowerment, Percentage)) +
-  geom_col(colour = ) + 
-  facet_wrap(~Sex) + 
+  ggplot(aes(Sex, Percentage)) +
+  geom_col() + 
+  facet_wrap(~EconomicEmpowerment) + 
   theme_bw()
   
 
