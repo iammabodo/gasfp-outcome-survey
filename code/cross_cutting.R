@@ -1,6 +1,7 @@
 library(tidyverse)
 library(expss)
 library(labelled)
+library(gt)
 
 # Import data for the calculation of all cross cutting indicators
 
@@ -19,7 +20,7 @@ SafetyConcerns <- CrossCuttingData %>%
     HHAsstSecurity == 1 ~ "Yes"))
 
 # Calculate the percentage of beneficiaries reporting safety concerns
-SafetyConcerns %>% 
+SafetyConcernsTable <- SafetyConcerns %>% 
   group_by(HHAsstSecurity) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
@@ -41,14 +42,14 @@ BarriersToTraining <- CrossCuttingData %>%
     TRUE ~ "Don't know"))
 
 # Indicator Calculation
-BarriersToTraining %>% 
+BarriersToTrainingTable <- BarriersToTraining %>% 
   group_by(HHAsstAccess) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
   select(-Count) %>%
   pivot_wider(names_from = HHAsstAccess, values_from = Percentage) %>%
   mutate(Indicator = "Barriers to Training") %>%
-  select(Indicator, everything())
+  select(Indicator, everything(), -`Don't know`)
 
 #CC 1.3 Treatment with respect and dignity
 
@@ -68,7 +69,7 @@ TreatedRespectfully <- CrossCuttingData %>%
     TRUE ~ "No"))
 
 # Indicator Calculation
-TreatedRespectfully %>% 
+TreatedRespectfullyTable <- TreatedRespectfully %>% 
   group_by(HHAsstRespectDign) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
@@ -104,7 +105,7 @@ AccessibleInformation <- CrossCuttingData %>%
 
 
 # Indicator Calculation
-AccessibleInformation %>% 
+AccessibleInformationTable <- AccessibleInformation %>% 
   group_by(AccessibleInformation) %>%  # To include other disaggregation variables here once we have the final data
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
@@ -161,17 +162,32 @@ CommunityParticipation <- CrossCuttingData %>%
   filter(RGenEntityYN == "Yes") %>%
   # Create the Community Participation variable
   mutate(CommunityParticipation = case_when(
-    RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes" ~ "Meaningful Participation",
-    TRUE ~ "No Meaningful Participation"))
+    RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes" ~ "Yes",
+    TRUE ~ "No"))
 
 # Calculate the percentage of beneficiaries reporting meaningful participation
 
-CommunityParticipation %>% 
-  group_by(RespGender, CommunityParticipation) %>% 
+CommunityParticipationTable <- CommunityParticipation %>% 
+  group_by(CommunityParticipation) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(CommunityParticipation == "Meaningful Participation")
+  select(-Count) %>%
+  pivot_wider(names_from = CommunityParticipation, values_from = Percentage) %>%
+  mutate(Indicator = "AC Leader Meaningfull Participation") %>%
+  select(Indicator, everything())
 
+
+## Combine the tables for all the cross cutting indicators
+CrossCuttingIndicatorsTable <- rbind(SafetyConcernsTable, BarriersToTrainingTable, 
+                                     TreatedRespectfullyTable, AccessibleInformationTable, 
+                                     CommunityParticipationTable)
+
+
+# Create a table and format it well usint the gt package
+CrossCuttingIndicatorsTable %>% 
+  # round the percentages to 2 decimal places
+  mutate(across(where(is.numeric), ~round(., 2))) %>%
+  gt()
 
 
 
