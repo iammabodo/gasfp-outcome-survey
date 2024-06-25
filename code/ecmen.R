@@ -7,7 +7,7 @@ library(gt)
 library(readxl)
 library(extrafont)
 library(ggtext)
-
+library(openxlsx)
 
 # Source the functions.R file
 #source("~/Work 2023 -Eltone/General M&E/GASFP Project/gasfp-outcome-survey/code/functions.R")
@@ -67,9 +67,11 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
 
 OveralECMEN <- ECMENdata %>% 
   count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) #%>% 
-  # Filter out the households that are not able to meet essential needs
-  #filter(ECMEN == "Unable to meet essential needs")
+  mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
+  # Mutate a variable and assign a value to it which is overal ecmen
+  mutate(Disagregation = "Overall") %>% 
+  rename(ECMENStatus = "ECMEN") %>% 
+  select(ECMENStatus, Disagregation, everything())
   
 
 # Indicator 2: Percentage of households that are unable to meet essential needs, dis aggregated gender of the household heard
@@ -77,37 +79,53 @@ OveralECMEN <- ECMENdata %>%
 HHHSexECMEN <- ECMENdata %>% 
   group_by(HHHSex) %>%
   count(ECMEN) %>% 
-  mutate(Percentage = round(100 * n / sum(n), 2)) #%>% 
-  # Filter out the households that are not able to meet essential needs
-  filter(ECMEN == "Unable to meet essential needs") #%>% 
-  # Pivot wider
-  pivot_wider(names_from = HHHSex, 
-              values_from = Percentage)
+  mutate(Percentage = round(100 * n / sum(n), 2)) %>%
+  rename(Disagregation = HHHSex) %>%
+  rename(ECMENStatus = "ECMEN") %>% 
+  select(ECMENStatus, Disagregation, everything())
   
   # Indicator 3: Percentage of households that are unable to meet essential needs, dis aggregated by ethnicity
   
   HHHEthnicityECMEN <- ECMENdata %>%
     group_by(HHHEthnicity) %>%
     count(ECMEN) %>% 
-    mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
-    # Filter out the households that are not able to meet essential needs
-    filter(ECMEN == "Unable to meet essential needs")
+    mutate(Percentage = round(100 * n / sum(n), 2))%>%
+    rename(Disagregation = HHHEthnicity) %>%
+    rename(ECMENStatus = "ECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything())
+  
+  # Combine the three tables into one
+  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN)
+  
+  # Write this into an xlsx file
+  write.xlsx(ECMENIndicators, "report/ECMENIndicators.xlsx")
+
+##Calculate the economic capacity of the households(Avergae per capita expenditure)
   
   # Indicator 4: Average economic per capita capacity 
   ECMENIncTot <- ECMENdata %>%
-    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
+    mutate(Disagregation = "Overall")
   
   # Indicator 5: Average economic per capita capacity, dis aggregated by gender of the household head
   
   ECMENIncHHHSex <- ECMENdata %>%
     group_by(HHHSex) %>%
-    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
+    rename(Disagregation = HHHSex)
   
   # Indicator 6: Average economic per capita capacity, dis aggregated by Ethnicity of the household head
   ECMENIncHHHEthnicity <- ECMENdata %>%
     group_by(HHHEthnicity) %>%
-    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2))
-  
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
+    rename(Disagregation = HHHEthnicity)
+
+# Combine the three tables into one
+ECMENIncIndicators <- bind_rows(ECMENIncTot, ECMENIncHHHSex, ECMENIncHHHEthnicity) %>% select(Disagregation, AvgEconomicCapacityUSD)
+
+# Write this into an xlsx file
+write.xlsx(ECMENIncIndicators, "report/ECMENIncIndicators.xlsx")
+
 ############################################################END OF INDICATOR CALCULATION########################################  
 
 ## INDICATOR VISUALISATIONS
