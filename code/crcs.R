@@ -54,42 +54,73 @@ CRCSData <- read_excel("data/FullHHRosterClean.xlsx") %>%  #Input file path here
 
 ###################################################INDICATOR CALCULATION####################################################
 
-CRCSData %>% 
+AnticipatoryCapacity <- CRCSData %>% 
   group_by(AnticipatoryCapacityCategory) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100)%>% 
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = AnticipatoryCapacityCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = "Anticipatory Capacity") %>% 
+  select(Disagregation, Low, Medium, High)
 
-CRCSData %>% 
+AbsorptiveCapacity <- CRCSData %>% 
   group_by(AbsorptiveCapacityCategory) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = AbsorptiveCapacityCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = "Absorptive Capacity") %>% 
+  select(Disagregation, Low, Medium, High)
 
 
-CRCSData %>%
+TransformativeCapacity <- CRCSData %>%
   group_by(TransformativeCapacityCategory) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100)%>% 
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = TransformativeCapacityCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = "Transformative Capacity") %>% 
+  select(Disagregation, Low, Medium, High)
 
-CRCSData %>% 
+AdaptiveCapacity <- CRCSData %>% 
   group_by(AdaptiveCapacityCategory) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100)%>% 
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = AdaptiveCapacityCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = "Adaptive Capacity") %>% 
+  select(Disagregation, Low, Medium, High)
 
-
-CRCSData %>% 
-  # Group by HHHEthnicity, HHHLanguage, IDPoor, HHHSex
-  group_by(HHHEthnicity) %>% 
-  # Calculate the necessary indicators
-  summarise(AverageCRCSScore = mean(CRCSScore, na.rm = T)) %>% 
-  # Ungroup the variables - to enable further analysis
-  ungroup()
-   
 # Calculate the percent of household in different CRCSCategory
-CRCSData %>% 
-  group_by(CRCSCategory) %>% 
-  summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+CRCSTotal <- CRCSData %>%
+  filter(!is.na(CRCSCategory)) %>%  # Remove NAs in CRCSCategory
+  group_by(CRCSCategory) %>%
+  summarise(Count = n(), .groups = 'drop') %>%  # Calculate count
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%  # Calculate percentage
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = CRCSCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = "Overall") %>% 
+  select(Disagregation, Low, Medium, High)
 
+# Calculate CRCS by baseline status
+CRCSCategoryBaseline <- CRCSData %>%
+  filter(!is.na(CRCSCategory)) %>%  # Remove NAs in CRCSCategory
+  group_by(HHBaseline, CRCSCategory) %>%
+  summarise(Count = n(), .groups = 'drop') %>%  # Calculate count
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%  # Calculate percentage
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = CRCSCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = HHBaseline) %>% 
+  select(Disagregation, Low, Medium, High) %>% 
+  filter(Disagregation != "Don't Know")
+
+# Combine the tables into one
+
+CRCSIndicators <- bind_rows(AnticipatoryCapacity, AbsorptiveCapacity, TransformativeCapacity, AdaptiveCapacity, CRCSTotal, CRCSCategoryBaseline) %>% 
+  mutate_if(is.character, as.factor)
+
+# Write an excel file 
+write.xlsx(CRCSIndicators, "report/CRCSIndicators.xlsx")
 
 #############################################INDICATOR VISUALISATION####################################################
 CRCSData %>% 

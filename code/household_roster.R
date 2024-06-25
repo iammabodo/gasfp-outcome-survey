@@ -230,7 +230,17 @@ FullHHRoster <- left_join(HHRoster, HHDisabRoster, by = "interview_key") %>%
 write.xlsx(FullHHRoster, "data/FullHHRosterClean.xlsx")
 
 
-###################################END OF CODE###################################
+###################################END OF CODE###############################################
+
+############################CALCULATE DEMOGRAPHIC CHARACTEISTICS################################
+
+HHCharacteristics <- FullHHRoster %>% 
+  distinct(interview_key, .keep_all = TRUE) %>%
+  # Select necessary variables to look at general sample characteristics
+  select(interview_key, HHID, HHList, HHBaseline, HHHEthnicity, HHHLanguage,
+         IDPoor, HHHSex, RespSex, ADMIN4Name, ACName, HHDisab, NumDisab, Produced) %>% 
+  # Mutate where is character to factor
+  mutate_if(is.character, as.factor)
 
 
 

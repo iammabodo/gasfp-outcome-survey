@@ -92,10 +92,25 @@ HHHSexECMEN <- ECMENdata %>%
     mutate(Percentage = round(100 * n / sum(n), 2))%>%
     rename(Disagregation = HHHEthnicity) %>%
     rename(ECMENStatus = "ECMEN") %>% 
-    select(ECMENStatus, Disagregation, everything())
+    select(ECMENStatus, Disagregation, everything()) %>% 
+    filter(Disagregation != "Foreigners")
+  
+  
+  # Indicator 4: Percentage of households that are unable to meet essential needs, dis aggregated by baseline status
+ ECMENBaseline <- ECMENdata %>% 
+    group_by(HHBaseline) %>%
+    count(ECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2))%>%
+    rename(Disagregation = HHBaseline) %>%
+    rename(ECMENStatus = "ECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything()) %>% 
+   # Filter to include only people from the baseline and new members
+    filter(Disagregation != "Don't Know") 
   
   # Combine the three tables into one
-  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN)
+  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN, ECMENBaseline) %>% 
+  # Change all character variables to factors
+  mutate_if(is.character, as.factor)
   
   # Write this into an xlsx file
   write.xlsx(ECMENIndicators, "report/ECMENIndicators.xlsx")
