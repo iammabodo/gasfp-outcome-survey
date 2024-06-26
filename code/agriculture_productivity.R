@@ -8,7 +8,7 @@ library(labelled)
 library(expss)
 library(readxl)
 
-# Import first roster data
+# Import first roster data.
 PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
   select(interview_key,  Roster_PSAMSRice_id, 
@@ -84,6 +84,8 @@ RiceIncomeRoster <- SAMSRoster %>%
   # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
   mutate(PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
          PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
+  group_by(interview_key, RiceType) %>%
+  mutate(PSAMSRiceRevenue = sum(PSAMSRiceRevenue, na.rm = TRUE)) %>%
   # Mutate PSAMSRiceIncome
   mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>% 
   # Change this income to USD
@@ -96,10 +98,38 @@ HHFullAgricRoster <- left_join(HHFullAgricRoster, RiceIncomeRoster, by = "interv
 ####################################ICOME FROM RICE PRODUCTION############################################
 
 # Calculate average and median rice income for the total farmers
-HHFullAgricRoster %>% 
+RiceIncome <- HHFullAgricRoster %>% 
+  group_by(interview_key) %>% 
+  summarise(TotalRiceIncome = sum(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  ungroup() %>%
+  summarise(AvgRiceIncome = mean(TotalRiceIncome, na.rm = TRUE),
+            MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE))
+
+RiceIncomeByRiceType <- HHFullAgricRoster %>% 
   group_by(RiceType) %>% 
   summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE))
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  #Round to 2 decimal places
+  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
+         MedianRiceIncome = round(MedianRiceIncome, 2))
+
+# Rice Income by several categorical variable, i.e., Household head gender, and Ethnicity of household head
+RiceIncomeByGender <- HHFullAgricRoster %>% 
+  group_by(HHHSex) %>% 
+  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  #Round to 2 decimal places
+  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
+         MedianRiceIncome = round(MedianRiceIncome, 2))
+
+RiceIncomeByEthnicity <- HHFullAgricRoster %>%
+  group_by(HHHEthnicity) %>% 
+  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  #Round to 2 decimal places
+  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
+         MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  filter(HHHEthnicity != "Foreigners")
 
 # Calculate average rice production per hectare
 HHFullAgricRoster %>% 
@@ -108,41 +138,82 @@ HHFullAgricRoster %>%
   summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE))
 
 # Income by gender of household head
-HHFullAgricRoster %>% 
+RiceIncGenderRiceType <- HHFullAgricRoster %>% 
   group_by(HHHSex, RiceType) %>% 
   summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE))
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  # round to 2 decimal places
+  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
+         MedianRiceIncome = round(MedianRiceIncome, 2))
 
 # Income by Ethnicity of household head
-HHFullAgricRoster %>% 
+RiceIncEthnictyRiceType <- HHFullAgricRoster %>% 
   group_by(HHHEthnicity, RiceType) %>% 
   summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE))
+            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  filter(HHHEthnicity != "Foreigners") %>% 
+  # round to 2 decimal places
+  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
+         MedianRiceIncome = round(MedianRiceIncome, 2))
 
 ####################################POST HARVEST LOSSES####################################################
 # Calculate average post harvest losses
 
-HHFullAgricRoster %>% 
-  mutate(AvgPostHarvestLoss = PSAMSPHLCommQntLost / PSAMSPHLCommQntHand) %>% 
-  group_by(RiceType) %>% 
-  summarise(AvgPostHarvestLoss = mean(AvgPostHarvestLoss, na.rm = TRUE))
+PHLosses <- HHFullAgricRoster %>% 
+  group_by(interview_key, RiceType) %>%
+  mutate(perc_loss = round((PSAMSPHLCommQntLost /(PSAMSPHLCommQntHand) * 100),1))
+
+HHFullPHLAgricRoster <- HHFullAgricRoster %>% 
+  select(interview_key, ADMIN4Name, ACName, HHBaseline, RiceType, IDPoor, HHHSex, RespSex, HHHEthnicity,) %>% 
+  left_join(PHLosses, by = c("interview_key", "RiceType")) %>% 
+  drop_na(RiceType)
 
 ####################################INCREASE IN RICE PRODUCTION####################################################
 
 # Calculate the percentage of farmers reporting increase in rice production
 HHFullAgricRoster %>% 
-  group_by(PSAMSNutCropIncr) %>% 
+  group_by(PSAMSNutCropIncr, RiceType) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(PSAMSNutCropIncr == "More")
 
 # Calculate the percentage of farmers reporting increase in rice production, disagregated by gender of the household heard
 HHFullAgricRoster %>% 
   group_by(PSAMSNutCropIncr, HHHSex) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(PSAMSNutCropIncr == "More")
+
+# Calculate the percentage of farmers reporting increase in rice production, disagregated by ethnicity of the household heard
+HHFullAgricRoster %>% 
+  group_by(PSAMSNutCropIncr, HHHEthnicity) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(PSAMSNutCropIncr == "More" & HHHEthnicity != "Foreigners")
+
+
+#############################################RICE PRODUCTION####################################################
+# Calculate the total rice production per hectare
+ProductivityByRiceType <- HHFullAgricRoster %>% 
+  group_by(RiceType) %>% 
+  summarise(TotalRiceProduction = mean(total_production, na.rm = TRUE)) %>% 
+  mutate(TotalRiceProduction = round(TotalRiceProduction, 2))
+
+
+ProductivityByGender <- HHFullAgricRoster %>% 
+  mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>%
+  group_by(RiceType, HHHSex) %>%
+  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE))
+
+ProductivityByEthnicity <- HHFullAgricRoster %>% 
+  mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>%
+  group_by(RiceType, HHHEthnicity) %>%
+  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE)) %>% 
+  filter(HHHEthnicity != "Foreigners")
 
 
 
+##############################################END OF SCRIPT####################################################
 
 
   
