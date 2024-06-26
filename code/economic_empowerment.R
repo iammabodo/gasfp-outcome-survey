@@ -21,7 +21,7 @@ EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx")
       HHHEthnicity == 2  | HHHEthnicity == 4  | HHHEthnicity == 5 | 
       HHHEthnicity == 6 | HHHEthnicity == 7 | HHHEthnicity == 8 | 
       HHHEthnicity == 9 | HHHEthnicity == 10 ~ "Ethnic Minority",
-      TRUE ~ "Foreigners"),
+      TRUE ~ NA),
     HHBaseline = case_when(
     HHBaseline == 0 ~ "Baseline Members",
     HHBaseline == 1 ~ "New Members",
@@ -68,8 +68,8 @@ GenderEconomicEmpGapEthnicity <- EconomicEmpowermentData %>%
   summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>%
   mutate(Percentage = round(Percentage, 2)) %>%
-  filter(HHHEthnicity != "Foreigners") %>% 
-  rename(Disagregation = HHHEthnicity)
+  rename(Disagregation = HHHEthnicity) %>% 
+  filter(Disagregation != "NA")
 
 GenderEconomicEmpGapTot <- EconomicEmpowermentData %>%
   group_by(EconomicEmpowerment) %>% # To include the disaggregation

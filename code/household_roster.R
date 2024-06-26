@@ -1,6 +1,7 @@
 library(tidyverse)
 library(readxl)
 library(openxlsx)
+library(ggshadow)
 
 # This module to load the household roster data and clean it for analysis and merge with the disability and agriculture production data
 # Loading From The Master File --------------------------------------------
@@ -243,8 +244,30 @@ HHCharacteristics <- FullHHRoster %>%
   mutate_if(is.character, as.factor)
 
 
-
-
+HHCharacteristics %>% 
+  group_by(ACName) %>% 
+  summarise(Count = n()) %>% 
+  arrange(Count) %>%  # Arrange in ascending order of Count
+  ggplot(aes(x = reorder(ACName, Count), y = Count)) + 
+  geom_col(width = 0.5) + 
+  coord_flip() +  
+  theme(
+    panel.background  = element_rect(fill = "white"),
+    panel.grid.major.x = element_line(color = "#A8BAC4", size = 0.3),
+    axis.ticks.length = unit(0, "mm"),
+    axis.title = element_blank(),
+    axis.line.y.left = element_line(color = "black", size = 0.5),
+    axis.text.y = element_blank()) + 
+  geom_text(
+            data = subset(HHCharacteristics, n() > 50),
+            aes(label = ACName), 
+            hjust = 0, 
+            size = 3,
+            nudge_x = 0.3,
+            color = "blue",
+            bg.colour = "white",
+            bg.r = 0.2,
+            size = 7) +
 
 
 
