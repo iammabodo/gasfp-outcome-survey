@@ -4,6 +4,8 @@ library(tidyverse)
 library(readxl)
 library(janitor)
 library(gt)
+library(openxlsx)
+library(forcats)
 
     
 # Import the data
@@ -43,17 +45,46 @@ EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx")
     RFinancSit == "Improved" & Ladder1YearAgo <= LadderToday ~ "Economically Empowered",
     TRUE ~ "Not Economically Empowered")) %>% 
   # Change all character variables to factors
-  mutate_if(is.character, as.factor)
+  mutate_if(is.character, as.factor) %>% 
+  # Drop NAs
+  drop_na(interview_key)
 
+##########################################################END OF DATA CLEANING###########################################################
 
-# Calculate the percentage of people reporting that the financial situation has improved, stayed the same, or worsened
+# Calculate the percentage of people reporting economic empowerment dis aggregated by gender
+
 GenderEconomicEmpGap <- EconomicEmpowermentData %>% 
   group_by(Sex, EconomicEmpowerment) %>% # To include the disaggregation by gender of the respondent here once we have the final data
-  summarise(Count = n()) %>% 
+  summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  ungroup() %>%
   # round the percentage to 2 decimal places
   mutate(Percentage = round(Percentage, 2))%>% 
   rename(Disagregation = Sex)
+
+# Perform a proportion test to determine if the proportion of economically empowered individuals is different
+countsGender <- EconomicEmpowermentData %>%
+  group_by(Sex) %>%
+  summarise(
+    EconomicallyEmpowered = sum(EconomicEmpowerment == "Economically Empowered"),
+    Total = n()
+  )
+
+# Perform the proportion test
+propTestResultGender <- prop.test(
+  x = countsGender$EconomicallyEmpowered, # Counts of "Economically Empowered" individuals
+  n = countsGender$Total,                 # Total counts of individuals for each gender
+  alternative = "two.sided"         # Two-sided test (default)
+)
+
+# Output the proportion test result
+print(propTestResultGender)
+
+## The results shows that the difference is not statistically significant at all acceptable levels of significance
+
+##########################################################################################################################
+
+# Calculate the percentage of people reporting economic empowerment disaggregated by baseline members and new members
 
 GenderEconomicEmpGapBaseline <- EconomicEmpowermentData %>% 
   group_by(HHBaseline, EconomicEmpowerment) %>% # To include the disaggregation
@@ -63,6 +94,30 @@ GenderEconomicEmpGapBaseline <- EconomicEmpowermentData %>%
   filter(HHBaseline != "Don't Know")%>% 
   rename(Disagregation = HHBaseline)
 
+# Perform a proportion test to determine if the proportion of economically empowered individuals is different
+countsBaseline <- EconomicEmpowermentData %>%
+  group_by(HHBaseline) %>%
+  filter(HHBaseline != "Don't Know") %>%
+  summarise(
+    EconomicallyEmpowered = sum(EconomicEmpowerment == "Economically Empowered"),
+    Total = n()
+  )
+
+# Perform the proportion test
+propTestResultBaseline <- prop.test(
+  x = countsBaseline$EconomicallyEmpowered, # Counts of "Economically Empowered" individuals
+  n = countsBaseline$Total,                 # Total counts of individuals for each gender
+  alternative = "two.sided"         # Two-sided test (default)
+)
+
+# Output the proportion test result
+print(propTestResultBaseline)
+
+## This test shows that the difference is not statistically significant at all acceptable levels of significance
+#############################################################################################################################
+
+# Calculate the percentage of people reporting economic empowerment dis aggregated by ethnicity 
+
 GenderEconomicEmpGapEthnicity <- EconomicEmpowermentData %>%
   group_by(HHHEthnicity, EconomicEmpowerment) %>% # To include the disaggregation
   summarise(Count = n()) %>%
@@ -70,6 +125,29 @@ GenderEconomicEmpGapEthnicity <- EconomicEmpowermentData %>%
   mutate(Percentage = round(Percentage, 2)) %>%
   rename(Disagregation = HHHEthnicity) %>% 
   filter(Disagregation != "NA")
+
+# Perform a proportion test to determine if the proportion of economically empowered individuals is different
+countsEthnicity <- EconomicEmpowermentData %>%
+  group_by(HHHEthnicity) %>%
+  filter(HHHEthnicity != "Foreigners") %>%
+  summarise(
+    EconomicallyEmpowered = sum(EconomicEmpowerment == "Economically Empowered"),
+    Total = n()
+  )
+
+# Perform the proportion test
+propTestResultEthnicity <- prop.test(
+  x = countsEthnicity$EconomicallyEmpowered, # Counts of "Economically Empowered" individuals
+  n = countsEthnicity$Total,                 # Total counts of individuals for each gender
+  alternative = "two.sided"         # Two-sided test (default)
+)
+
+# Output the proportion test result
+print(propTestResultEthnicity)
+
+## This test shows that the difference is statistically significant (at 1% level of significance)
+
+#############################################################################################################################
 
 GenderEconomicEmpGapTot <- EconomicEmpowermentData %>%
   group_by(EconomicEmpowerment) %>% # To include the disaggregation
@@ -79,27 +157,55 @@ GenderEconomicEmpGapTot <- EconomicEmpowermentData %>%
   mutate(Disagregation = "Total") %>% 
   select(Disagregation, EconomicEmpowerment, Count, Percentage)
 
+
+# Perform the proportion test
+propTestResultTot <- prop.test(
+  x = GenderEconomicEmpGapTot$Count[GenderEconomicEmpGapTot$EconomicEmpowerment == "Economically Empowered"],
+  n = sum(GenderEconomicEmpGapTot$Count),
+  p = 0.5,  # Null hypothesis proportion (50%)
+  alternative = "two.sided"
+)
+
+print(propTestResultTot)
+
+# The resuts shows that the difference is statistically significant at all acceptable levels of significance
+
+############################################################################################################################
+
 # Combine the three tables into one
 
-GenderEconomicEmpGapFull <- bind_rows(GenderEconomicEmpGap, GenderEconomicEmpGapBaseline, GenderEconomicEmpGapEthnicity, GenderEconomicEmpGapTot) 
+GenderEconomicEmpGapFull <- bind_rows(GenderEconomicEmpGap, 
+                                      GenderEconomicEmpGapBaseline, 
+                                      GenderEconomicEmpGapEthnicity, 
+                                      GenderEconomicEmpGapTot)
 
 
 # Write this into an xlsx file
 write.xlsx(GenderEconomicEmpGapFull, "report/GenderEconomicEmpGapFull.xlsx")
 
-#####################################################END OF DATA CLEANING######################################################################
+#####################################################INDICATOR CALCULATION##################################################
 
-# Visualize the table using ggplot 
-GenderEconomicEmpGap %>%
-  ggplot(aes(Sex, Percentage)) +
-  geom_col() + 
-  facet_wrap(~EconomicEmpowerment) + 
-  theme_bw()
+GenderEconomicEmpGapFull %>%
+  filter(EconomicEmpowerment == "Economically Empowered") %>%
+  fct_reorder(EconomicEmpowerment, Percentage) %>% 
+  ggplot(aes(x = EconomicEmpowerment, y = Percentage)) +
+  geom_col(aes(fill = Disagregation), position = position_dodge(width = 0.9), width = 0.5) +
+  geom_text(aes(label = scales::percent(Percentage / 100), 
+                group = Disagregation), 
+            position = position_dodge(width = 0.9), 
+            vjust = 1.5, 
+            color = "white") +
+  scale_fill_brewer(palette = "Set3", name = "Disaggregation") +
+  labs(title = "Gender Economic Empowerment Breakdown in Kho Nhek District",
+       x = "Economic Empowerment",
+       y = "Percentage") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
   
-
-EconomicEmpowermentData %>% 
-  ggplot(aes(HHHLanguage,EconomicEmpowerment)) +
-  geom_count()
+  
+  
 
 
 

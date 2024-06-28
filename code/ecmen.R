@@ -17,7 +17,8 @@ NewMEB <- 375158 # This is the new MEB for Cambodia.
 NewSMEB <- 180648 # This is the new SMEB for Cambodia.
 OldMEB <- 323614 # This is the old MEB for Cambodia. 
 OldSMEB <- 159181 # This is the old SMEB for Cambodia.
-
+OldMEBUSD <- round((OldMEB / 4100),2) # This is the old MEB in USD
+OldSMEBUSD <- round((OldSMEB / 4100),2) # This is the old SMEB in USD
   
 # Loading data and calculating ECMEN --------------------------------------------
 ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>% 
@@ -174,9 +175,17 @@ subtitle_text <- "Number of households <span style='color:#00BFC4'>**Male**</spa
                y = TotalExpPerCapitaUSD, 
                fill = HHHSex)) +
     geom_point(position = position_jitterdodge(), 
-               size = 4,
+               size = 3,
                alpha = 0.75,
                shape = 21) + 
+  geom_hline(yintercept = OldMEBUSD, 
+             linetype = "dashed", 
+             color = "red",
+             size = 1.5) +
+  geom_hline(yintercept = OldSMEBUSD, 
+             linetype = "dashed", 
+             color = "blue",
+             size = 1.5) +
     theme_minimal(base_size = 14,
                   base_family = "Times New Roman") + # Should Learn How to use different fonts
     theme(plot.subtitle = ggtext::element_markdown(),

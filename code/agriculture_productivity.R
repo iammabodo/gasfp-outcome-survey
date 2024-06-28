@@ -66,7 +66,7 @@ SAMSRoster <- left_join(PSAMSRiceRoster,
 
 
 # Load in the household full roster data
-HHFullAgricRoster <- read_excel("data/FullHHRosterClean.xlsx") %>% 
+HHFullDemographicRoster <- read_excel("data/FullHHRosterClean.xlsx") %>% 
   # Select the necessary variables for this analysis
   select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity, HHHLanguage) %>% 
   # Distinct the data
@@ -89,7 +89,9 @@ RiceIncomeRoster <- SAMSRoster %>%
   # Mutate PSAMSRiceIncome
   mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>% 
   # Change this income to USD
-  mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) 
+  mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) %>%
+  # Round the income to 2 decimal places
+  mutate(PSAMSRiceIncome = round(PSAMSRiceIncome, 2))
 
 # Merge the HHFullAgricRoster with the RiceIncomeRoster
 HHFullAgricRoster <- left_join(HHFullAgricRoster, RiceIncomeRoster, by = "interview_key") %>% 
@@ -97,65 +99,66 @@ HHFullAgricRoster <- left_join(HHFullAgricRoster, RiceIncomeRoster, by = "interv
 
 ####################################ICOME FROM RICE PRODUCTION############################################
 
+data <- HHFullAgricRoster %>%
+  group_by(interview_key) %>%
+  mutate(RiceProduced = case_when(
+    any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
+    all(RiceType == "Organic Rice") ~ "Organic Rice",
+    all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
+  )) %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
+  select(interview_key, RiceProduced, RiceType)
+
 # Calculate average and median rice income for the total farmers
 RiceIncome <- HHFullAgricRoster %>% 
   group_by(interview_key) %>% 
   summarise(TotalRiceIncome = sum(PSAMSRiceIncome, na.rm = TRUE)) %>% 
   ungroup() %>%
-  summarise(AvgRiceIncome = mean(TotalRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE))
+  # Merge with data to get the rice type
+  left_join(data, by = "interview_key")
 
-RiceIncomeByRiceType <- HHFullAgricRoster %>% 
-  group_by(RiceType) %>% 
-  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
-  #Round to 2 decimal places
-  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
-         MedianRiceIncome = round(MedianRiceIncome, 2))
+# Join the HHFullDemographicRoster with the RiceIncome
+HHFullAgricIncomeRoster <- left_join(HHFullDemographicRoster, RiceIncome, by = "interview_key") %>% 
+  drop_na(RiceProduced) %>% 
+  #Mutate every character variable to be a factor
+  mutate_if(is.character, as.factor)
 
-# Rice Income by several categorical variable, i.e., Household head gender, and Ethnicity of household head
-RiceIncomeByGender <- HHFullAgricRoster %>% 
+# Calculate income from Rice Production
+IncomeFromRiceProduction <- HHFullAgricIncomeRoster %>% 
+  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+  mutate(Disagregation = "Total") %>% 
+  select(Disagregation, RiceIncome)
+
+# Calculate midean income disaggregated by the gender of the household heard
+IncomeByGender <- HHFullAgricIncomeRoster %>% 
   group_by(HHHSex) %>% 
-  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
-  #Round to 2 decimal places
-  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
-         MedianRiceIncome = round(MedianRiceIncome, 2))
+  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+  rename(Disagregation = HHHSex)
 
-RiceIncomeByEthnicity <- HHFullAgricRoster %>%
+
+# Calculate midean income disaggregated by HHHEthnicity
+IncomeByEthnicity <- HHFullAgricIncomeRoster %>% 
   group_by(HHHEthnicity) %>% 
-  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
-  #Round to 2 decimal places
-  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
-         MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
-  filter(HHHEthnicity != "Foreigners")
-
-# Calculate average rice production per hectare
-HHFullAgricRoster %>% 
-  mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>% 
-  group_by(RiceType) %>%
-  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE))
-
-# Income by gender of household head
-RiceIncGenderRiceType <- HHFullAgricRoster %>% 
-  group_by(HHHSex, RiceType) %>% 
-  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
-  # round to 2 decimal places
-  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
-         MedianRiceIncome = round(MedianRiceIncome, 2))
-
-# Income by Ethnicity of household head
-RiceIncEthnictyRiceType <- HHFullAgricRoster %>% 
-  group_by(HHHEthnicity, RiceType) %>% 
-  summarise(AvgRiceIncome = mean(PSAMSRiceIncome, na.rm = TRUE),
-            MedianRiceIncome = median(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
   filter(HHHEthnicity != "Foreigners") %>% 
-  # round to 2 decimal places
-  mutate(AvgRiceIncome = round(AvgRiceIncome, 2),
-         MedianRiceIncome = round(MedianRiceIncome, 2))
+  rename(Disagregation = HHHEthnicity)
 
+# Calculate midean income disaggregated by RiceProduced
+IncomeByRiceProduced <- HHFullAgricIncomeRoster %>% 
+  group_by(RiceProduced) %>% 
+  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+  rename(Disagregation = RiceProduced)
+
+# Combine the tables
+IncomeFromRiceProduction <- bind_rows(IncomeFromRiceProduction, IncomeByGender, IncomeByEthnicity, IncomeByRiceProduced) %>% 
+  mutate_if(is.character, as.factor)
+
+# Write the table to an excel file
+write.xlsx(IncomeFromRiceProduction, "report/IncomeFromRiceProduction.xlsx")
 ####################################POST HARVEST LOSSES####################################################
 # Calculate average post harvest losses
 

@@ -102,6 +102,30 @@ CRCSTotal <- CRCSData %>%
   mutate(Disagregation = "Overall") %>% 
   select(Disagregation, Low, Medium, High)
 
+CRCSQuantTot <- CRCSData %>%
+  summarise(AvgCRCS = mean(CRCSScore, na.rm = TRUE)) %>% 
+  mutate(Disagregation = "Overall")
+
+CRCSQuantEthnicity <- CRCSData %>%
+  group_by(HHHEthnicity) %>%
+  summarise(AvgCRCS = mean(CRCSScore, na.rm = TRUE)) %>% 
+  rename(Disagregation = HHHEthnicity) %>% 
+  filter(Disagregation != "Foreigners")
+
+CRCSQuantSex <- CRCSData %>%
+  group_by(HHHSex) %>%
+  summarise(AvgCRCS = mean(CRCSScore, na.rm = TRUE)) %>% 
+  rename(Disagregation = HHHSex)
+
+# Bind the tables together
+CRCSQuantIndicators <- bind_rows(CRCSQuantTot, CRCSQuantEthnicity, CRCSQuantSex) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  #round the AvgCRCS to 2 decimal places
+  mutate(AvgCRCS = round(AvgCRCS, 2))
+
+write.xlsx(CRCSQuantIndicators, "report/CRCSQuantIndicators.xlsx")
+
+
 # Calculate CRCS by baseline status
 CRCSCategoryBaseline <- CRCSData %>%
   filter(!is.na(CRCSCategory)) %>%  # Remove NAs in CRCSCategory
@@ -114,10 +138,32 @@ CRCSCategoryBaseline <- CRCSData %>%
   select(Disagregation, Low, Medium, High) %>% 
   filter(Disagregation != "Don't Know")
 
+CRCSCategoryEthnicity <- CRCSData %>%
+  filter(!is.na(CRCSCategory)) %>%  # Remove NAs in CRCSCategory
+  group_by(HHHEthnicity, CRCSCategory) %>%
+  summarise(Count = n(), .groups = 'drop') %>%  # Calculate count
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%  # Calculate percentage
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = CRCSCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = HHHEthnicity) %>% 
+  filter(Disagregation != "Foreigners")
+
+CRCSCategorySex <- CRCSData %>%
+  filter(!is.na(CRCSCategory)) %>%  # Remove NAs in CRCSCategory
+  group_by(HHHSex, CRCSCategory) %>%
+  summarise(Count = n(), .groups = 'drop') %>%  # Calculate count
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%  # Calculate percentage
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = CRCSCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = HHHSex)
+
 # Combine the tables into one
 
-CRCSIndicators <- bind_rows(AnticipatoryCapacity, AbsorptiveCapacity, TransformativeCapacity, AdaptiveCapacity, CRCSTotal, CRCSCategoryBaseline) %>% 
-  mutate_if(is.character, as.factor)
+CRCSIndicators <- bind_rows(AnticipatoryCapacity, AbsorptiveCapacity, TransformativeCapacity, 
+                            AdaptiveCapacity, CRCSTotal, CRCSCategoryBaseline, CRCSCategoryEthnicity, CRCSCategorySex) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  #round the everything that is numeric to 2 decimal places
+  mutate_if(is.numeric, ~round(., 2))
 
 # Write an excel file 
 write.xlsx(CRCSIndicators, "report/CRCSIndicators.xlsx")

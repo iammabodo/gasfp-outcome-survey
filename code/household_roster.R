@@ -7,7 +7,7 @@ library(ggshadow)
 # Loading From The Master File --------------------------------------------
 HHRoster <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate ECMEN
-  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, HHHEthnicity, HHHLanguage, IDPoor, SEX_HHH, # Identification variables 
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, AGE_Resp, HHHEthnicity, HHHLanguage, IDPoor, SEX_HHH, # Identification variables 
          starts_with("HHExp"), # Variables to calculate ECMEN
          contains("SAMSPHL"), # Agricultural Production variables
          starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity"), # Cross cutting variables
@@ -72,7 +72,8 @@ HHRoster <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
                               RiceType == "PSAMSPHLCommN_2" ~ "Non Organic Rice")) %>%
   # Mutate the Produced variable to be more descriptive
   mutate(Produced = case_when(Produced == 1 ~ "Yes",
-                              TRUE ~ "No"))
+                              TRUE ~ "No")) %>% 
+  filter(AGE_Resp >= 18)
 
 # Load the household roster file and determine wether the family has a person with disability and how many members
 HHDisabRoster <- read_excel("data/HHRoster_Cleaned_Numeric.xlsx") %>% 

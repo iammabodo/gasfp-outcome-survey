@@ -2,12 +2,14 @@ library(tidyverse)
 library(expss)
 library(labelled)
 library(gt)
+library(openxlsx)
 
 # Import data for the calculation of all cross cutting indicators
 
 CrossCuttingData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
-  select(interview_key, HHID, SEX_HHH, HHHEthnicity, HHList, HHHLanguage, IDPoor, HHBaseline, # Disagregation variables
-         starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity"))
+  select(interview_key, HHID, SEX_HHH, HHHEthnicity, HHList, HHHLanguage, IDPoor, AGE_Resp, HHBaseline, # Disagregation variables
+         starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity")) %>% 
+  filter(AGE_Resp >= 18)
   
 
 # Calculate CC-1.1: Beneficiaries reporting safety concerns 
@@ -183,11 +185,9 @@ CrossCuttingIndicatorsTable <- rbind(SafetyConcernsTable, BarriersToTrainingTabl
                                      CommunityParticipationTable)
 
 
-# Create a table and format it well usint the gt package
-CrossCuttingIndicatorsTable %>% 
-  # round the percentages to 2 decimal places
-  mutate(across(where(is.numeric), ~round(., 2))) %>%
-  gt()
+# Write an excel file with the cross cutting indicators
+write.xlsx(CrossCuttingIndicatorsTable, "report/CrossCuttingIndicators.xlsx")
+
 
 
 
