@@ -244,6 +244,9 @@ HHCharacteristics <- FullHHRoster %>%
   # Mutate where is character to factor
   mutate_if(is.character, as.factor)
 
+# Save the data
+write.xlsx(HHCharacteristics, "data/HHCharacteristics.xlsx")
+
 
 HHCharacteristics %>% 
   group_by(ACName) %>% 
@@ -268,7 +271,7 @@ HHCharacteristics %>%
             color = "blue",
             bg.colour = "white",
             bg.r = 0.2,
-            size = 7) +
+            size = 7)
 
 
 

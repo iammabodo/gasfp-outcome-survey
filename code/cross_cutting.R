@@ -6,58 +6,121 @@ library(openxlsx)
 
 # Import data for the calculation of all cross cutting indicators
 
-CrossCuttingData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
-  select(interview_key, HHID, SEX_HHH, HHHEthnicity, HHList, HHHLanguage, IDPoor, AGE_Resp, HHBaseline, # Disagregation variables
+CrossCuttingData <- read_excel("data/FullHHRosterClean.xlsx") %>% 
+  select(interview_key, HHID, HHHSex, HHHEthnicity, HHList, HHHLanguage, IDPoor, AGE_Resp, RespSex, HHBaseline, # Disagregation variables
          starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity")) %>% 
-  filter(AGE_Resp >= 18)
+  filter(AGE_Resp >= 18) %>% 
+  distinct(interview_key, .keep_all = TRUE)
   
+###################################################################################################################################
 
 # Calculate CC-1.1: Beneficiaries reporting safety concerns 
 SafetyConcerns <- CrossCuttingData %>% 
   # Select the necessary variables for this analysis
-  select(HHID, HHAsstSecurity, IDPoor, SEX_HHH) %>% 
+  select(interview_key, HHAsstSecurity, HHHEthnicity, RespSex) %>% 
   # Mutate the key variable (HHAsstSecurity) to have meaningful labels
   mutate(HHAsstSecurity = case_when(
     HHAsstSecurity == 0 ~ "No",
     HHAsstSecurity == 1 ~ "Yes"))
 
 # Calculate the percentage of beneficiaries reporting safety concerns
-SafetyConcernsTable <- SafetyConcerns %>% 
+SafetyConcernsTotal <- SafetyConcerns %>% 
   group_by(HHAsstSecurity) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  select(-Count) %>% 
-  pivot_wider(names_from = HHAsstSecurity, values_from = Percentage) %>% 
-  mutate(Indicator = "Beneficiaries reporting safety concerns") %>% 
-  select(Indicator, everything())
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  filter(HHAsstSecurity == "Yes") %>%
+  select(HHAsstSecurity, Percentage) %>%
+  # Change Yes to Total
+  mutate(HHAsstSecurity = "Total") %>%
+  rename(Disaggregation = HHAsstSecurity)
 
+# Indicator Calculation, disaggregated by gender of the respondent
+SafetyConcernsGender <- SafetyConcerns %>% 
+  group_by(RespSex, HHAsstSecurity) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(HHAsstSecurity == "Yes") %>%
+  select(RespSex, Percentage) %>%
+  rename(Disaggregation = RespSex)
+
+# Calculate the indicator, disaggregated by HHHEthnicity
+SafetyConcernsEthnicity <- SafetyConcerns %>% 
+  group_by(HHHEthnicity, HHAsstSecurity) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(HHAsstSecurity == "Yes") %>%
+  select(HHHEthnicity, Percentage) %>%
+  rename(Disaggregation = HHHEthnicity)
+
+# Combine the tables for all the disaggregations
+SafetyConcernsTable <- rbind(SafetyConcernsTotal, SafetyConcernsGender, SafetyConcernsEthnicity) %>% 
+  #round the percentage to 2 decimal place
+  mutate(Percentage = round(Percentage, 2))
+  
+# Write excel
+write.xlsx(SafetyConcernsTable, "report/SafetyConcernsTable.xlsx")
+
+#################################################################################################################################
 
 #CC 1.2 Barriers to training
 
 BarriersToTraining <- CrossCuttingData %>% 
   # Select the necessary variables for this analysis
-  select(HHID, HHAsstAccess, HHAsstAccessAction, IDPoor, SEX_HHH) %>% # Might need to add HHAsstAccessWhat here when we have the final data set
+  select(interview_key, HHAsstAccess, HHAsstAccessAction, HHHEthnicity, RespSex) %>% 
   # Mutate the key variable (HHAsstAccess) to have meaningful labels
   mutate(HHAsstAccess = case_when(
     HHAsstAccess == 0 ~ "No",
     HHAsstAccess == 1 ~ "Yes",
     TRUE ~ "Don't know"))
 
-# Indicator Calculation
-BarriersToTrainingTable <- BarriersToTraining %>% 
+# Indicator Calculation Total
+BarriersToTrainingTotal <- BarriersToTraining %>% 
   group_by(HHAsstAccess) %>% 
   summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  ungroup() %>%
+  filter(HHAsstAccess == "Yes") %>%
+  select(HHAsstAccess, Percentage) %>%
+  # Change Yes to Total
+  mutate(HHAsstAccess = "Total") %>%
+  rename(Disaggregation = HHAsstAccess)
+
+# Indicator Calculation, disaggregated by gender of the respondent
+BarriersToTrainingGender <- BarriersToTraining %>% 
+  group_by(RespSex, HHAsstAccess) %>% 
+  summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  select(-Count) %>%
-  pivot_wider(names_from = HHAsstAccess, values_from = Percentage) %>%
-  mutate(Indicator = "Barriers to Training") %>%
-  select(Indicator, everything(), -`Don't know`)
+  ungroup() %>%
+  filter(HHAsstAccess == "Yes") %>%
+  select(RespSex, Percentage) %>%
+  rename(Disaggregation = RespSex)
+
+# Indicator Calculation, disaggregated by HHHEthnicity
+
+BarriersToTrainingEthnicity <- BarriersToTraining %>% 
+  group_by(HHHEthnicity, HHAsstAccess) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  ungroup() %>%
+  filter(HHAsstAccess == "Yes" & HHHEthnicity != "Foreigners") %>%
+  select(HHHEthnicity, Percentage) %>%
+  rename(Disaggregation = HHHEthnicity)
+
+# Combine the tables for all the disaggregations
+BarriersToTrainingTable <- rbind(BarriersToTrainingTotal, BarriersToTrainingGender, BarriersToTrainingEthnicity) %>% 
+  #round the percentage to 2 decimal place
+  mutate(Percentage = round(Percentage, 2))
+
+# Write excel
+write.xlsx(BarriersToTrainingTable, "report/BarriersToTrainingTable.xlsx")
+
+#########################################################################################################################
 
 #CC 1.3 Treatment with respect and dignity
 
 TreatedRespectfully <- CrossCuttingData %>% 
   # Select the necessary variables for this analysis
-  select(HHID, HHAsstRespect, HHDTPDign, IDPoor, SEX_HHH) %>% 
+  select(interview_key, HHID, HHAsstRespect, HHDTPDign, HHHEthnicity, RespSex) %>% 
   # Mutate the key variables (HHAsstRespect and HHDTPDign) to have meaningful labels
   mutate(HHAsstRespect = case_when(
     HHAsstRespect == 0 ~ "No",
@@ -70,21 +133,50 @@ TreatedRespectfully <- CrossCuttingData %>%
     HHAsstRespect == "Yes" & HHDTPDign == "Yes" ~ "Yes",
     TRUE ~ "No"))
 
-# Indicator Calculation
-TreatedRespectfullyTable <- TreatedRespectfully %>% 
+# Calculate the percentage of people reporting being treated with respect and dignity
+TreatedRespectifullyTotal <- TreatedRespectfully %>% 
   group_by(HHAsstRespectDign) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  select(-Count) %>%
-  pivot_wider(names_from = HHAsstRespectDign, values_from = Percentage) %>%
-  mutate(Indicator = "Treated with respect and dignity") %>%
-  select(Indicator, everything())
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  filter(HHAsstRespectDign == "Yes") %>%
+  select(HHAsstRespectDign, Percentage) %>%
+  # Change Yes to Total
+  mutate(HHAsstRespectDign = "Total") %>%
+  rename(Disaggregation = HHAsstRespectDign)
 
+# Calculate the indicator, disaggregated by gender of the respondent
+TreatedRespectifullyGender <- TreatedRespectfully %>% 
+  group_by(RespSex, HHAsstRespectDign) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(HHAsstRespectDign == "Yes") %>%
+  select(RespSex, Percentage) %>%
+  rename(Disaggregation = RespSex)
+
+# Calculate the indicator, disaggregated by HHHEthnicity
+TreatedRespectifullyEthnicity <- TreatedRespectfully %>% 
+  group_by(HHHEthnicity, HHAsstRespectDign) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(HHAsstRespectDign == "Yes" & HHHEthnicity != "Foreigners") %>%
+  select(HHHEthnicity, Percentage) %>%
+  rename(Disaggregation = HHHEthnicity)
+
+# Combine the tables for all the disaggregations
+TreatedRespectfullyTable <- rbind(TreatedRespectifullyTotal, TreatedRespectifullyGender, TreatedRespectifullyEthnicity) %>% 
+  #round the percentage to 2 decimal place
+  mutate(Percentage = round(Percentage, 2))
+
+# Write excel
+write.xlsx(TreatedRespectfullyTable, "report/TreatedRespectfullyTable.xlsx")
+
+#############################################################################################################################
 
 # 2.1 Accessible Information
+
 AccessibleInformation <- CrossCuttingData %>% 
   # Select the necessary variables for this analysis
-  select(HHID, IDPoor, SEX_HHH, # Disagregation variables
+  select(interview_key, HHHEthnicity, RespSex, # Disagregation variables
          HHAsstKnowEnt, HHAsstKnowPeople, HHAsstRecInfo, HHAsstReportMisc) %>% # Indicator calculation variables
   # Mutate the key variables to have meaningful labels
   mutate(HHAsstKnowEnt = case_when(
@@ -102,20 +194,48 @@ AccessibleInformation <- CrossCuttingData %>%
     HHAsstReportMisc == 1 ~ "Yes")) %>% 
   # Create the Accessible Information variable
   mutate(AccessibleInformation = case_when(
-    HHAsstKnowEnt == "Yes" & HHAsstKnowPeople == "Yes" & HHAsstRecInfo == "Yes" & HHAsstReportMisc == "Yes" ~ "Yes",
+    (HHAsstKnowEnt == "Yes" & HHAsstKnowPeople == "Yes" & HHAsstRecInfo == "Yes" & HHAsstReportMisc == "Yes") ~ "Yes",
     TRUE ~ "No"))
 
-
-# Indicator Calculation
-AccessibleInformationTable <- AccessibleInformation %>% 
-  group_by(AccessibleInformation) %>%  # To include other disaggregation variables here once we have the final data
+# Calculate the percentage of beneficiaries reporting accessible information (Total)
+AccessibleInformationTotal <- AccessibleInformation %>% 
+  group_by(AccessibleInformation) %>% 
   summarise(Count = n()) %>% 
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  select(-Count) %>%
-  pivot_wider(names_from = AccessibleInformation, values_from = Percentage) %>%
-  mutate(Indicator = "Accessible Information") %>%
-  select(Indicator, everything())
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  filter(AccessibleInformation == "Yes") %>%
+  select(AccessibleInformation, Percentage) %>%
+  # Change Yes to Total
+  mutate(AccessibleInformation = "Total") %>%
+  rename(Disaggregation = AccessibleInformation)
 
+# Galculate the indicator disaggregated by the gender of the respondent
+AccessibleInformationGender <- AccessibleInformation %>% 
+  group_by(RespSex, AccessibleInformation) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(AccessibleInformation == "Yes") %>%
+  select(RespSex, Percentage) %>%
+  rename(Disaggregation = RespSex)
+
+# Calculate the indicator, disaggregated by HHHEthnicity
+AccessibleInformationEthnicity <- AccessibleInformation %>% 
+  group_by(HHHEthnicity, AccessibleInformation) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(AccessibleInformation == "Yes" & HHHEthnicity != "Foreigners") %>%
+  select(HHHEthnicity, Percentage) %>%
+  rename(Disaggregation = HHHEthnicity)
+
+
+# Combine the tables for all the disaggregations
+AccessibleInformationTable <- rbind(AccessibleInformationTotal, AccessibleInformationGender, AccessibleInformationEthnicity) %>% 
+  #round the percentage to 2 decimal place
+  mutate(Percentage = round(Percentage, 2))
+
+# Write excel
+write.xlsx(AccessibleInformationTable, "report/AccessibleInformationTable.xlsx")
+
+#############################################################################################################################
 
 # 3.4 Community Meaningful Participation
 
@@ -132,12 +252,14 @@ GenderData <- read_excel("data/WFP_GASFP_WO8_NumericV2.xlsx") %>%
     RespGender == 1 ~ "Male",
     RespGender == 0 ~ "Female"))
 
+# Combine the demographic characteristics with the cross cutting data
+
 CommunityParticipation <- CrossCuttingData %>% 
   # Select the necessary variables for this analysis
-  select(interview_key, HHID, IDPoor, # Disagregation variables
+  select(interview_key, HHID, IDPoor, HHHEthnicity, # Disagregation variables
          starts_with("RGenEntity")) %>% # Indicator calculation variables
   # Join with Gender data
-  left_join(GenderData, by = "interview_key") %>%
+  left_join(GenderData, by = c("interview_key", "HHID")) %>%
   # Mutate the key variables to have meaningful labels
   mutate(RGenEntityYN = case_when(
     RGenEntityYN == 0 ~ "No",
@@ -164,32 +286,49 @@ CommunityParticipation <- CrossCuttingData %>%
   filter(RGenEntityYN == "Yes") %>%
   # Create the Community Participation variable
   mutate(CommunityParticipation = case_when(
-    RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes" ~ "Yes",
+    (RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes") ~ "Yes",
     TRUE ~ "No"))
 
-# Calculate the percentage of beneficiaries reporting meaningful participation
-
-CommunityParticipationTable <- CommunityParticipation %>% 
+# Calculate the percentage of beneficiaries reporting meaningful participation (Total)
+CommunityParticipationTotal <- CommunityParticipation %>% 
   group_by(CommunityParticipation) %>% 
   summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  filter(CommunityParticipation == "Yes") %>%
+  select(CommunityParticipation, Percentage) %>%
+  # Change Yes to Total
+  mutate(CommunityParticipation = "Total") %>%
+  rename(Disaggregation = CommunityParticipation)
+
+# Calculate the indicator disaggregated by gender of the respondent
+CommunityParticipationGender <- CommunityParticipation %>% 
+  group_by(RespGender, CommunityParticipation) %>% 
+  summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  select(-Count) %>%
-  pivot_wider(names_from = CommunityParticipation, values_from = Percentage) %>%
-  mutate(Indicator = "AC Leader Meaningfull Participation") %>%
-  select(Indicator, everything())
+  filter(CommunityParticipation == "Yes") %>%
+  select(RespGender, Percentage) %>%
+  rename(Disaggregation = RespGender)
 
 
-## Combine the tables for all the cross cutting indicators
-CrossCuttingIndicatorsTable <- rbind(SafetyConcernsTable, BarriersToTrainingTable, 
-                                     TreatedRespectfullyTable, AccessibleInformationTable, 
-                                     CommunityParticipationTable)
+# Calculate the indicator, disaggregated by HHHEthnicity
+CommunityParticipationEthnicity <- CommunityParticipation %>% 
+  group_by(HHHEthnicity, CommunityParticipation) %>% 
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(CommunityParticipation == "Yes" & HHHEthnicity != "Foreigners") %>%
+  select(HHHEthnicity, Percentage) %>%
+  rename(Disaggregation = HHHEthnicity)
+
+# Combine the tables for all the disaggregations
+CommunityParticipationTable <- rbind(CommunityParticipationTotal, CommunityParticipationGender, CommunityParticipationEthnicity) %>% 
+  #round the percentage to 2 decimal place
+  mutate(Percentage = round(Percentage, 2))
+
+# Write excel
+write.xlsx(CommunityParticipationTable, "report/CommunityParticipationTable.xlsx")
 
 
-# Write an excel file with the cross cutting indicators
-write.xlsx(CrossCuttingIndicatorsTable, "report/CrossCuttingIndicators.xlsx")
-
-
-
+#####################################################END OF SCRIPT###################################################################
 
 
 

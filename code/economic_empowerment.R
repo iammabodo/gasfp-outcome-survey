@@ -147,6 +147,15 @@ print(propTestResultEthnicity)
 
 ## This test shows that the difference is statistically significant (at 1% level of significance)
 
+## Economic Empoweremnt disagregated by IDPoor Status
+GenderEconomicEmpGapIDPoor <- EconomicEmpowermentData %>%
+  group_by(IDPoor, EconomicEmpowerment) %>% # To include the disaggregation
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  mutate(Percentage = round(Percentage, 2)) %>%
+  rename(Disagregation = IDPoor) 
+
+
 #############################################################################################################################
 
 GenderEconomicEmpGapTot <- EconomicEmpowermentData %>%
@@ -177,7 +186,8 @@ print(propTestResultTot)
 GenderEconomicEmpGapFull <- bind_rows(GenderEconomicEmpGap, 
                                       GenderEconomicEmpGapBaseline, 
                                       GenderEconomicEmpGapEthnicity, 
-                                      GenderEconomicEmpGapTot)
+                                      GenderEconomicEmpGapTot,
+                                      GenderEconomicEmpGapIDPoor)
 
 
 # Write this into an xlsx file

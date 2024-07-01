@@ -117,11 +117,19 @@ CRCSQuantSex <- CRCSData %>%
   summarise(AvgCRCS = mean(CRCSScore, na.rm = TRUE)) %>% 
   rename(Disagregation = HHHSex)
 
+CRCSQuantIDPoor <- CRCSData %>%
+  group_by(IDPoor) %>%
+  summarise(AvgCRCS = mean(CRCSScore, na.rm = TRUE)) %>% 
+  rename(Disagregation = IDPoor) %>% 
+  filter(Disagregation != "Don't Know")
+
 # Bind the tables together
-CRCSQuantIndicators <- bind_rows(CRCSQuantTot, CRCSQuantEthnicity, CRCSQuantSex) %>% 
+CRCSQuantIndicators <- bind_rows(CRCSQuantTot, CRCSQuantEthnicity, CRCSQuantSex, CRCSQuantIDPoor) %>% 
   mutate_if(is.character, as.factor) %>% 
   #round the AvgCRCS to 2 decimal places
-  mutate(AvgCRCS = round(AvgCRCS, 2))
+  mutate(AvgCRCS = round(AvgCRCS, 2)) %>% 
+  select(Disagregation, AvgCRCS)
+
 
 write.xlsx(CRCSQuantIndicators, "report/CRCSQuantIndicators.xlsx")
 
@@ -157,10 +165,19 @@ CRCSCategorySex <- CRCSData %>%
   pivot_wider(names_from = CRCSCategory, values_from = Percentage) %>% 
   mutate(Disagregation = HHHSex)
 
+CRCSCategoryIDPoor <- CRCSData %>%
+  filter(!is.na(CRCSCategory)) %>%  # Remove NAs in CRCSCategory
+  group_by(IDPoor, CRCSCategory) %>%
+  summarise(Count = n(), .groups = 'drop') %>%  # Calculate count
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%  # Calculate percentage
+  select(-Count) %>%  # Remove the Count column
+  pivot_wider(names_from = CRCSCategory, values_from = Percentage) %>% 
+  mutate(Disagregation = IDPoor) %>% 
+  filter(Disagregation != "Don't Know")
 # Combine the tables into one
 
 CRCSIndicators <- bind_rows(AnticipatoryCapacity, AbsorptiveCapacity, TransformativeCapacity, 
-                            AdaptiveCapacity, CRCSTotal, CRCSCategoryBaseline, CRCSCategoryEthnicity, CRCSCategorySex) %>% 
+                            AdaptiveCapacity, CRCSTotal, CRCSCategoryBaseline, CRCSCategoryEthnicity, CRCSCategorySex, CRCSCategoryIDPoor) %>% 
   mutate_if(is.character, as.factor) %>% 
   #round the everything that is numeric to 2 decimal places
   mutate_if(is.numeric, ~round(., 2))

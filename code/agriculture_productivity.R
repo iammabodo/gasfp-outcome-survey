@@ -7,8 +7,9 @@ library(tidyverse)
 library(labelled)
 library(expss)
 library(readxl)
+library(openxlsx)
 
-# Import first roster data.
+# Import first roster data. To be used for calculation of indicator 1. Households reporting increase in the production of rice and Income
 PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
   select(interview_key,  Roster_PSAMSRice_id, 
@@ -32,7 +33,7 @@ PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>%
     Roster_PSAMSRice_id == 1 ~ "Organic Rice",
     Roster_PSAMSRice_id == 2 ~ "Non Organic Rice"))
 
-# Import second roster data
+# Import second roster data. Essential for the calculation of Post Harvest Loses
 PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx") %>% 
   # Selecting required columns
   select(interview_key, Roster_PSAMSRice_id, Roster_HarvestNmb_id, 
@@ -65,7 +66,8 @@ SAMSRoster <- left_join(PSAMSRiceRoster,
          PSAMSPHLCommArea = as.numeric(PSAMSPHLCommArea))
 
 
-# Load in the household full roster data
+# Load in the household full roster data. This is essential for dis aggregations
+
 HHFullDemographicRoster <- read_excel("data/FullHHRosterClean.xlsx") %>% 
   # Select the necessary variables for this analysis
   select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity, HHHLanguage) %>% 
@@ -93,12 +95,15 @@ RiceIncomeRoster <- SAMSRoster %>%
   # Round the income to 2 decimal places
   mutate(PSAMSRiceIncome = round(PSAMSRiceIncome, 2))
 
-# Merge the HHFullAgricRoster with the RiceIncomeRoster
-HHFullAgricRoster <- left_join(HHFullAgricRoster, RiceIncomeRoster, by = "interview_key") %>% 
+# Merge the HHFullAgricRoster with the RiceIncomeRoster. To be used for calculation of indicator 3. 
+# Total household income from rice production
+HHFullAgricRoster <- left_join(HHFullDemographicRoster, RiceIncomeRoster, by = "interview_key") %>% 
   drop_na(RiceType)
 
 ####################################ICOME FROM RICE PRODUCTION############################################
 
+# Mutate the variable  to indicate which rice types did the farmer produce (i.e., Organic, Non-Organic or Both)
+# This is not a requiredment, but a necessity in case we want to see how income is different among these three groups
 data <- HHFullAgricRoster %>%
   group_by(interview_key) %>%
   mutate(RiceProduced = case_when(
@@ -117,7 +122,9 @@ RiceIncome <- HHFullAgricRoster %>%
   # Merge with data to get the rice type
   left_join(data, by = "interview_key")
 
-# Join the HHFullDemographicRoster with the RiceIncome
+# Join the HHFullDemographicRoster with the RiceIncome.
+# This join is improtant such that we can have the disagregations in the indicator calculation
+
 HHFullAgricIncomeRoster <- left_join(HHFullDemographicRoster, RiceIncome, by = "interview_key") %>% 
   drop_na(RiceProduced) %>% 
   #Mutate every character variable to be a factor
@@ -153,8 +160,15 @@ IncomeByRiceProduced <- HHFullAgricIncomeRoster %>%
   mutate(RiceIncome = round(RiceIncome, 2)) %>% 
   rename(Disagregation = RiceProduced)
 
+# Calculate midean income disaggregated by IDPoor
+IncomeByIDPoor <- HHFullAgricIncomeRoster %>% 
+  group_by(IDPoor) %>% 
+  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+  rename(Disagregation = IDPoor)
+
 # Combine the tables
-IncomeFromRiceProduction <- bind_rows(IncomeFromRiceProduction, IncomeByGender, IncomeByEthnicity, IncomeByRiceProduced) %>% 
+IncomeFromRiceProduction <- bind_rows(IncomeFromRiceProduction, IncomeByGender, IncomeByEthnicity, IncomeByRiceProduced, IncomeByIDPoor) %>% 
   mutate_if(is.character, as.factor)
 
 # Write the table to an excel file
@@ -164,37 +178,111 @@ write.xlsx(IncomeFromRiceProduction, "report/IncomeFromRiceProduction.xlsx")
 
 PHLosses <- HHFullAgricRoster %>% 
   group_by(interview_key, RiceType) %>%
-  mutate(perc_loss = round((PSAMSPHLCommQntLost /(PSAMSPHLCommQntHand) * 100),1))
+  mutate(perc_loss = round((PSAMSPHLCommQntLost /(PSAMSPHLCommQntHand) * 100),1)) %>% 
+  ungroup() %>%
+  group_by(interview_key) %>%
+  mutate(AvgPHLoss = mean(perc_loss, na.rm = TRUE))
+
+# Merge with the household roster to get the disagregations
 
 HHFullPHLAgricRoster <- HHFullAgricRoster %>% 
   select(interview_key, ADMIN4Name, ACName, HHBaseline, RiceType, IDPoor, HHHSex, RespSex, HHHEthnicity,) %>% 
-  left_join(PHLosses, by = c("interview_key", "RiceType")) %>% 
-  drop_na(RiceType)
+  left_join(PHLosses, by = c("interview_key", "RiceType", "HHHSex", "RespSex", "HHHEthnicity", "IDPoor")) %>% 
+  drop_na(RiceType) %>%
+  distinct(interview_key, .keep_all = TRUE)
 
+# Calculate the average total post harvest losses indicator
+TotalPHLosses <- HHFullPHLAgricRoster %>% 
+  summarise(AvgPHLoss = mean(AvgPHLoss, na.rm = TRUE)) %>% 
+  mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
+  mutate(Disagregation = "Total") %>% 
+  select(Disagregation, AvgPHLoss)
+
+# Calculate the average total post harvest losses indicator, disagaggregated by HHHSex
+PHLossesByGender <- HHFullPHLAgricRoster %>% 
+  group_by(HHHSex) %>% 
+  summarise(AvgPHLoss = mean(AvgPHLoss, na.rm = TRUE)) %>% 
+  mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
+  rename(Disagregation = HHHSex)
+
+# Calculate the average total post harvest losses indicator, disagaggregated by HHHEthnicity
+PHLossesByEthnicity <- HHFullPHLAgricRoster %>% 
+  group_by(HHHEthnicity) %>% 
+  summarise(AvgPHLoss = mean(AvgPHLoss, na.rm = TRUE)) %>% 
+  mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
+  filter(HHHEthnicity != "Foreigners") %>% 
+  rename(Disagregation = HHHEthnicity)
+
+# Calculate the average total post harvest losses indicator, disagaggregated by RiceType
+PHLossesByRiceType <- HHFullPHLAgricRoster %>% 
+  group_by(RiceType) %>% 
+  summarise(AvgPHLoss = mean(AvgPHLoss, na.rm = TRUE)) %>% 
+  mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
+  rename(Disagregation = RiceType)
+
+# Calculate the average total post harvest losses indicator, disagaggregated by IDPoor Status
+PHLossesByIDPoor <- HHFullPHLAgricRoster %>% 
+  group_by(IDPoor) %>% 
+  summarise(AvgPHLoss = mean(AvgPHLoss, na.rm = TRUE)) %>% 
+  mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
+  rename(Disagregation = IDPoor)
+
+# Combine the tables
+PHLosses <- bind_rows(TotalPHLosses, PHLossesByGender, PHLossesByEthnicity, PHLossesByRiceType, PHLossesByIDPoor) %>% 
+  mutate_if(is.character, as.factor)
+
+# Write the table to an excel file
+write.xlsx(PHLosses, "report/PHLosses.xlsx")
 ####################################INCREASE IN RICE PRODUCTION####################################################
 
 # Calculate the percentage of farmers reporting increase in rice production
-HHFullAgricRoster %>% 
-  group_by(PSAMSNutCropIncr, RiceType) %>% 
+TotalIncProduction <- HHFullPHLAgricRoster %>% 
+  group_by(PSAMSNutCropIncr) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(PSAMSNutCropIncr == "More")
+  ungroup() %>%
+  filter(PSAMSNutCropIncr == "More") %>% 
+  mutate(Disagregation = "Total") %>%
+  select(Disagregation, Percentage)
 
 # Calculate the percentage of farmers reporting increase in rice production, disagregated by gender of the household heard
-HHFullAgricRoster %>% 
+GenderIncProduction <- HHFullPHLAgricRoster %>% 
   group_by(PSAMSNutCropIncr, HHHSex) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(PSAMSNutCropIncr == "More")
+  ungroup() %>%
+  filter(PSAMSNutCropIncr == "More") %>% 
+  rename(Disagregation = HHHSex) %>%
+  select(Disagregation, Percentage)
 
-# Calculate the percentage of farmers reporting increase in rice production, disagregated by ethnicity of the household heard
-HHFullAgricRoster %>% 
+# Calculate the indicator disaggregated by ethnicity of the household heard
+EthnicityIncProduction <- HHFullPHLAgricRoster %>% 
   group_by(PSAMSNutCropIncr, HHHEthnicity) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(PSAMSNutCropIncr == "More" & HHHEthnicity != "Foreigners")
+  ungroup() %>%
+  filter(PSAMSNutCropIncr == "More" & HHHEthnicity != "Foreigners") %>% 
+  rename(Disagregation = HHHEthnicity) %>%
+  select(Disagregation, Percentage)
 
+# Calculate the indicator disaggregated by IDPoor status
+IDPoorIncProduction <- HHFullPHLAgricRoster %>% 
+  group_by(PSAMSNutCropIncr, IDPoor) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  ungroup() %>%
+  filter(PSAMSNutCropIncr == "More") %>% 
+  rename(Disagregation = IDPoor) %>% 
+  select(Disagregation, Percentage)
 
+## Merge the tables
+IncProduction <- bind_rows(TotalIncProduction, GenderIncProduction, EthnicityIncProduction, IDPoorIncProduction) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  #round the percentage to 2 decimal places
+  mutate(Percentage = round(Percentage, 2))
+
+# Write the table to an excel file
+write.xlsx(IncProduction, "report/IncProduction.xlsx")
 #############################################RICE PRODUCTION####################################################
 # Calculate the total rice production per hectare
 ProductivityByRiceType <- HHFullAgricRoster %>% 

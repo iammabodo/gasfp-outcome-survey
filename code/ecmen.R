@@ -107,9 +107,19 @@ HHHSexECMEN <- ECMENdata %>%
     select(ECMENStatus, Disagregation, everything()) %>% 
    # Filter to include only people from the baseline and new members
     filter(Disagregation != "Don't Know") 
+ 
+ # Economic Capacity by IDPoor
+ ECMENIDPoor <- ECMENdata %>% 
+    group_by(IDPoor) %>%
+    count(ECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2))%>%
+    rename(Disagregation = IDPoor) %>%
+    rename(ECMENStatus = "ECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything()) %>% 
+    filter(Disagregation != "Don't Know")
   
   # Combine the three tables into one
-  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN, ECMENBaseline) %>% 
+  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN, ECMENBaseline, ECMENIDPoor) %>% 
   # Change all character variables to factors
   mutate_if(is.character, as.factor)
   
@@ -135,9 +145,15 @@ HHHSexECMEN <- ECMENdata %>%
     group_by(HHHEthnicity) %>%
     summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
     rename(Disagregation = HHHEthnicity)
+  
+  # Indicator disagregrated by idpoor
+  ECMENIncIDPoor <- ECMENdata %>%
+    group_by(IDPoor) %>%
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
+    rename(Disagregation = IDPoor)
 
 # Combine the three tables into one
-ECMENIncIndicators <- bind_rows(ECMENIncTot, ECMENIncHHHSex, ECMENIncHHHEthnicity) %>% select(Disagregation, AvgEconomicCapacityUSD)
+ECMENIncIndicators <- bind_rows(ECMENIncTot, ECMENIncHHHSex, ECMENIncHHHEthnicity, ECMENIncIDPoor) %>% select(Disagregation, AvgEconomicCapacityUSD)
 
 # Write this into an xlsx file
 write.xlsx(ECMENIncIndicators, "report/ECMENIncIndicators.xlsx")

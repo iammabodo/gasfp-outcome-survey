@@ -16,29 +16,23 @@ FullFIESData <- read_excel("data/FullHHRosterClean.xlsx") %>% #Add the data file
   # Change character variables to factors
   mutate(across(where(is.character), as.factor)) %>%
   # Mutate household sample weights and individual sampling weights and assign NAs
-  mutate(HHWeight = NA, IndWeight = NA)
+  mutate(HHWeight = NA, IndWeight = NA) %>%
+  filter(HHHEthnicity != "Foreigners")
 
 ##Analyse data
 FIESData <- FullFIESData %>% 
   #Remove outliers
   # find_outliers() %>%
   # Select only the FIES variables
-  select(starts_with("FIES"),HHHSex, IDPoor)
+  select(starts_with("FIES"),HHWeight, IndWeight, HHHSex, HHHEthnicity)
 
 
 # Save the FIESData in the data folder
 write_csv(FIESData, "data/FIESData.csv")
 
-# FIES Model
+# Run The RM.weights function on the FIESData
+FIESData <- RM.w(FIESData, HHWeight, IndWeight, HHHSex, HHHEthnicity, "FIES")
 
-FIESModel = RM.w(FIESData[,1:8])
-
-
-round(cbind("severity" = FIESModel$b, "infit" = FIESModel$infit), 2)
-
-screeplot(prcomp(FIESModel$mat.res), type = "lines")
-
-FIESModel$reliab.fl
 
 
 
