@@ -60,7 +60,8 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
   mutate(SurvivalECMEN = case_when(
     TotalExpPerCapita >=  OldSMEB ~ "Able Survive",
     TotalExpPerCapita < OldSMEB ~ "Unable to Survive"
-  ))
+  )) %>% 
+  filter(TotalExpPerCapitaUSD < 500)
 
 ############################################################END OF DATA CLEANING##############################################################################
 
@@ -222,5 +223,20 @@ ECMENdata %>%
              color = HHHSex)) +
   geom_point(position = "jitter")
   
+#####################################################################################################################
+
+ECMENdata %>% 
+  ggplot(aes(ECMEN, HHHEthnicity)) +
+  geom_col() +
+  labs(title = "Economic Capacity
+
+
+
+
+
+
+
+
+
 
 

@@ -260,10 +260,10 @@ HHCharacteristics %>%
     panel.grid.major.x = element_line(color = "#A8BAC4", size = 0.3),
     axis.ticks.length = unit(0, "mm"),
     axis.title = element_blank(),
-    axis.line.y.left = element_line(color = "black", size = 0.5),
+    axis.line.y.left = element_line(color = "black", linewidth = 0.5),
     axis.text.y = element_blank()) + 
   geom_text(
-            data = subset(HHCharacteristics, n() > 50),
+            data = subset(HHCharacteristics, count > 50),
             aes(label = ACName), 
             hjust = 0, 
             size = 3,

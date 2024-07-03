@@ -250,7 +250,9 @@ GenderData <- read_excel("data/WFP_GASFP_WO8_NumericV2.xlsx") %>%
   # Change RespGender to a more meaningful variable
   mutate(RespGender = case_when(
     RespGender == 1 ~ "Male",
-    RespGender == 0 ~ "Female"))
+    RespGender == 0 ~ "Female")) %>% 
+  # Filter out respondents below 18 years
+  filter(RespAge >= 18)
 
 # Combine the demographic characteristics with the cross cutting data
 

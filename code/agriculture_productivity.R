@@ -80,7 +80,7 @@ RiceIncomeRoster <- SAMSRoster %>%
   select(interview_key, RiceType, total_production, PSAMSPHLCommQuant, PSAMSPHLCommArea, PSAMSNutCropIncr,
          PSAMSRiceSellQuant, PSAMSPHLCommArea_Unit, PSAMSRiceSellMN, PSAMSRiceInputsMN, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>%
   # Mutate rice revenue
-  mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1096, total_production * 1106)) %>% 
+  mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1100, total_production * 1200)) %>% 
   mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>%
   mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
   # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
@@ -305,6 +305,55 @@ ProductivityByEthnicity <- HHFullAgricRoster %>%
 
 
 ##############################################END OF SCRIPT####################################################
+
+
+
+# Join ECMEN Data and Rice Income data
+
+IncomeEconCapacityData <- ECMENdata %>% 
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity,
+         TotalExpPerCapitaUSD) %>% 
+  # Left journey with the RiceIncome data
+  left_join(RiceIncome, by = "interview_key") %>%
+  # Drop NAs for TotalRiceIncome and RiceProduced
+  drop_na(TotalRiceIncome, RiceProduced) %>% 
+  distinct(interview_key, .keep_all = TRUE) %>% 
+  # Mutate RiceIncomePerCapita
+  mutate(RiceIncomePerCapita = TotalRiceIncome / HHList,
+         TotalYExpperCapitaUSD = TotalExpPerCapitaUSD * HHList,
+         RiceMPerCapita = RiceIncomePerCapita / 12)
+
+IncomeEconCapacityData %>% 
+  group_by(RiceProduced) %>% 
+  summarise(meanRiceIncome = mean(TotalRiceIncome, na.rm = TRUE), 
+            meanTE = mean(TotalExpPerCapitaUSD, na.rm = TRUE))
+# Plot the relationship between RiceIncomePerCapita and TotalExpPerCapitaUSD
+
+IncomeEconCapacityData %>% summarise(meanPCI = mean(RiceIncomePerCapita, na.rm = TRUE), meanTE = mean(TotalExpPerCapitaUSD, na.rm = TRUE))
+
+IncomeEconCapacityData %>% 
+  filter(TotalExpPerCapitaUSD < 500) %>%
+  ggplot(aes(x = RiceMPerCapita, y = TotalExpPerCapitaUSD)) +
+  geom_jitter(position = position_dodge(width = 0.8)) +
+  geom_hline(yintercept = OldMEBUSD, linetype = "dashed") +
+  geom_hline(yintercept = OldSMEBUSD, linetype = "dashed") +
+  facet_wrap(~RiceProduced) +
+  scale_x_log10() +
+  scale_y_log10()
+
+
+IncomeEconCapacityData %>% 
+  filter(TotalExpPerCapitaUSD < 500 & HHHEthnicity != "Foreigners") %>%
+  ggplot(aes()) +
+  geom_jitter(position = position_dodge(width = 0.8)) +
+  scale_x_log10() +
+  scale_y_log10()
+
+
+
+
+
+
 
 
   

@@ -12,7 +12,7 @@ library(forcats)
 
 EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate the percentage of men and women reporting to have economic empowerment
-  select(interview_key, HHID, Sex, HHHEthnicity, HHHLanguage, IDPoor, HHBaseline, # Dis aggregation variables
+  select(interview_key, HHID, Sex, AGE_Resp, HHHEthnicity, HHHLanguage, IDPoor, HHBaseline, # Dis aggregation variables
         HHGenMembers, RFinancSit, RFinancSitRsn, LadderToday, Ladder1YearAgo, LadderReason) %>% # Indicator calculation variables
   # Mutate the variable to have meaningful labels
   mutate(Sex = case_when(
@@ -39,7 +39,9 @@ EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx")
     RFinancSit == 1 ~ "Improved",
     RFinancSit == 2 ~ "Stayed the same",
     RFinancSit == 3 ~ "Worsened",
-    TRUE ~ "Prefer not to answer")) %>%
+    TRUE ~ "Prefer not to answer"),
+    RespAge = as.numeric(AGE_Resp)) %>%
+  filter(RespAge >= 18) %>% # Filter out respondents below 18 years
   # Create the economic empowerment variable. This is the key indicator for the analysis
   mutate(EconomicEmpowerment = case_when(
     RFinancSit == "Improved" & Ladder1YearAgo <= LadderToday ~ "Economically Empowered",
@@ -47,7 +49,7 @@ EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx")
   # Change all character variables to factors
   mutate_if(is.character, as.factor) %>% 
   # Drop NAs
-  drop_na(interview_key)
+  drop_na(HHHEthnicity)
 
 ##########################################################END OF DATA CLEANING###########################################################
 

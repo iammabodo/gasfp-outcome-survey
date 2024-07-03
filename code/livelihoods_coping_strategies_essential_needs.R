@@ -2,6 +2,7 @@ library(tidyverse)
 library(labelled)
 library(expss)
 library(readxl)
+library(openxlsx)
 
   
 #Import the data set
@@ -54,13 +55,46 @@ LCSENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
     Max_coping_behaviourEN == 3 ~ "Crisis coping strategies",
     Max_coping_behaviourEN == 4 ~ "Emergencies coping strategies",
     TRUE ~ "NA")) %>% 
-  distinct(interview_key, .keep_all = TRUE)
+  distinct(interview_key, .keep_all = TRUE) %>% 
+  filter(HHHEthnicity != "Foreigners")
 
-
-LCSENdata %>% 
+# Create a table of the weighted percentage of Max_coping_behaviourEN
+TotalLCSEN <- LCSENdata %>% 
   group_by(Max_coping_behaviourEN) %>%
   summarise(Count = n()) %>%
-  mutate(Percentage = (Count / sum(Count)) * 100)
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  mutate(Disagregation = "Total") %>% 
+  select(Disagregation, everything())
+
+
+# Calculate the indicator of the maximum coping behavior dis aggregated by Ethnicity
+LCSENEthnicity <- LCSENdata %>% 
+  group_by(HHHEthnicity, Max_coping_behaviourEN) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disagregation = HHHEthnicity)
+  
+# Calculate the indicator of the maximum coping behavior dis aggregated by Gender of Household Heard
+LCSENHHHSex <- LCSENdata %>% 
+  group_by(HHHSex, Max_coping_behaviourEN) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%
+  rename(Disagregation = HHHSex)
+
+LCSENIDPoor <- LCSENdata %>% 
+  group_by(IDPoor, Max_coping_behaviourEN) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disagregation = IDPoor)
+
+
+# Combine the tables
+LCSENTable <- bind_rows(TotalLCSEN, LCSENEthnicity, LCSENHHHSex, LCSENIDPoor) %>% 
+  # Round every numeric to 2 decimals
+  mutate_if(is.numeric, ~round(., 2))
+
+# Write an excel table
+write.xlsx(LCSENTable, "report/LCSENTable.xlsx")
 
 LCSENdata %>% 
   group_by(Max_coping_behaviourEN) %>%
@@ -71,53 +105,3 @@ LCSENdata %>%
   labs(title = "Maximum coping behaviour")
 
 
-
-
-#create a variable to specify if the household used any of the strategies by severity
-
-# Stress
-var_label(LCSENdata$LcsEN_stress_DomAsset) <- "Engage in stress coping strategies by selling domestic assets"
-var_label(LCSENdata$LcsEN_stress_Saving) <- "Engage in stress coping strategies by spending savings"
-var_label(LCSENdata$LcsEN_stress_BorrowCash) <- "Engage in stress coping strategies by borrowing cash"
-var_label(LCSENdata$LcsEN_stress_HHSeparation) <- "Engage in stress coping strategies by separation of family members"
-var_label(LCSENdata$stress_coping_EN) <- "Did the HH engage in stress coping strategies"
-
-#Crisis
-var_label(LCSENdata$LcsEN_crisis_ProdAssets) <- "Engage in crisis coping strategies by selling productive assets"
-var_label(LCSENdata$LcsEN_crisis_Health) <- "Engage in crisis coping strategies by spending on health"
-var_label(LCSENdata$LcsEN_crisis_OutSchool) <- "Engage in crisis coping strategies by taking children out of school"
-var_label(LCSENdata$LcsEN_crisis_Edu) <- "Engage in crisis coping strategies by reducing education expenses"
-var_label(LCSENdata$crisis_coping_EN) <- "Did the HH engage in crisis coping strategies"
-
-
-# Emergency
-var_label(LCSENdata$LcsEN_em_ResAsset) <- "Engage in emergency coping strategies by selling residential assets e.g., house"
-var_label(LCSENdata$LcsEN_em_Begged) <- "Engage in emergency coping strategies by begging"
-var_label(LCSENdata$LcsEN_em_IllegalAct) <- "Engage in emergency coping strategies by engaging in illegal activities"
-var_label(LCSENdata$emergency_coping_EN) <- "Did the HH engage in emergency coping strategies"
-
-# Calculate Max_coping_behavior
-
-
-#creates a table of the weighted percentage of Max_coping_behaviourFS by
-#creating a temporary variable to display value labels 
-#and providing the option to use weights if needed
-
-Max_coping_behaviourEN_table_wide <- LCSENdata %>% 
-  drop_na(Max_coping_behaviourEN) %>%
-  # Group by HHHSex HHHSex, HHHEthnicity, HHHLanguage, 
-  group_by(HHHEthnicity, HHHLanguage) %>%
-  count(Max_coping_behaviourEN) %>% # if weights are needed use instead the row below 
-  mutate(Percentage = 100 * n / sum(n)) %>%
-  ungroup() %>% select(-n) %>%
-  pivot_wider(names_from = Max_coping_behaviourEN,
-              values_from = Percentage,
-              values_fill =  0) %>% 
-  drop_na()
-
-# Graph maximum coping behaviour
-Max_coping_behaviourEN_table_wide %>%
-  gather(Max_coping_behaviourEN, Percentage, -HHHEthnicity, -HHHLanguage) %>%
-  ggplot(aes(x = HHHEthnicity, y = Percentage, fill = Max_coping_behaviourEN)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Maximum coping")
