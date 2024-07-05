@@ -248,6 +248,71 @@ HHCharacteristics <- FullHHRoster %>%
 write.xlsx(HHCharacteristics, "data/HHCharacteristics.xlsx")
 
 
+HHCharacteristicsGender <- HHCharacteristics %>% 
+  group_by(HHHSex) %>% 
+  summarise(Count = n()) %>% 
+  # mutate the percentage
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disaggregation = HHHSex)
+  
+HHCharacteristicsRespSex <- HHCharacteristics %>% 
+  group_by(RespSex) %>% 
+  summarise(Count = n()) %>% 
+  # mutate the percentage
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disaggregation = RespSex)
+
+HHCharacteristicsEthnicity <- HHCharacteristics %>%
+  group_by(HHHEthnicity) %>% 
+  summarise(Count = n()) %>% 
+  # mutate the percentage
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disaggregation = HHHEthnicity)
+
+HHCharacteristicsACName <- HHCharacteristics %>% 
+  group_by(ACName) %>% 
+  summarise(Count = n()) %>% 
+  # mutate the percentage
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disaggregation = ACName)
+
+HHCharacteristicsIDPoor <- HHCharacteristics %>%
+  group_by(IDPoor) %>% 
+  summarise(Count = n()) %>% 
+  # mutate the percentage
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disaggregation = IDPoor)
+
+
+HHCharacteristicsDisab <- HHCharacteristics %>%
+  group_by(HHDisab) %>% 
+  summarise(Count = n()) %>% 
+  # mutate the percentage
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  rename(Disaggregation = HHDisab)
+
+
+HHCharacteristics %>% 
+  group_by(ACName, HHHEthnicity) %>%
+  summarise(Count = n()) %>%
+  # Calculate percentage per group
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  filter(HHHEthnicity == "Ethnic Minority")
+
+# merge the tables
+HHCharacteristicsMerge <- HHCharacteristicsGender %>% 
+  bind_rows(HHCharacteristicsRespSex) %>% 
+  bind_rows(HHCharacteristicsEthnicity) %>% 
+  bind_rows(HHCharacteristicsACName) %>% 
+  bind_rows(HHCharacteristicsIDPoor) %>% 
+  bind_rows(HHCharacteristicsDisab) %>% 
+  # round every double variable to 2 decimal places
+  mutate_if(is.double, ~round(., 2))
+
+  
+write.xlsx(HHCharacteristicsMerge, "report/HHCharacteristicsMerge.xlsx")
+
+
 HHCharacteristics %>% 
   group_by(ACName) %>% 
   summarise(Count = n()) %>% 

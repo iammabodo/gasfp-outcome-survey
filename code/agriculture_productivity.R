@@ -114,6 +114,8 @@ data <- HHFullAgricRoster %>%
   distinct(interview_key, .keep_all = TRUE) %>%
   select(interview_key, RiceProduced, RiceType)
 
+write.xlsx(data, "data/RiceProduced.xlsx")
+
 # Calculate average and median rice income for the total farmers
 RiceIncome <- HHFullAgricRoster %>% 
   group_by(interview_key) %>% 
@@ -129,6 +131,43 @@ HHFullAgricIncomeRoster <- left_join(HHFullDemographicRoster, RiceIncome, by = "
   drop_na(RiceProduced) %>% 
   #Mutate every character variable to be a factor
   mutate_if(is.character, as.factor)
+
+HHFullAgricIncomeRoster %>% 
+  group_by(HHHEthnicity, RiceProduced) %>% 
+  summarise(Count = n(),
+            medianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  ungroup() %>%
+  filter(HHHEthnicity != "Foreigners") %>% 
+  write.xlsx("report/IncomeFromRiceProductionNew.xlsx")
+  ggplot(aes(x=RiceProduced, y=Count, fill=HHHEthnicity)) + 
+  geom_bar(stat="identity", position=position_dodge(width=0.8), width=0.7) +
+  scale_y_continuous(
+    limits = c(0, 140),
+    breaks = seq(0, 140, by = 20), 
+    expand = c(0, 0) # The horizontal axis does not extend to either side
+  ) + 
+  # #geom_text(aes(label=Count), position=position_dodge(width=0.8), 
+  #           vjust=2.5, 
+  #           size=5,
+  #           colour = "white") + 
+  scale_fill_manual(values=c("Ethnic Majority"="#1f78b4", "Ethnic Minority"="#33a02c")) + 
+  labs(title="Clear evidence that Ethnic Minorities prefer to produce organic rice \n whilst ethnic majority prefer non-organic rice",
+       x="Type of Rice Produced",
+       y="Number of Farmers") +
+  theme_minimal()+
+  theme(
+    # Set background color to white
+    panel.background = element_rect(fill = "white"),
+    # Set the color and the width of the grid lines for the horizontal axis
+    panel.grid.major.x = element_line(color = "#A8BAC4", size = 0.3),
+    # Only left line of the vertical axis is painted in black
+    axis.line.y.left = element_line(color = "black"),
+    # But customize labels for the horizontal axis
+    axis.text.x = element_text(family = "Econ Sans Cnd", size = 16),
+    legend.position = "none")
+        
+
+
 
 # Calculate income from Rice Production
 IncomeFromRiceProduction <- HHFullAgricIncomeRoster %>% 
@@ -188,6 +227,7 @@ PHLosses <- HHFullAgricRoster %>%
 HHFullPHLAgricRoster <- HHFullAgricRoster %>% 
   select(interview_key, ADMIN4Name, ACName, HHBaseline, RiceType, IDPoor, HHHSex, RespSex, HHHEthnicity,) %>% 
   left_join(PHLosses, by = c("interview_key", "RiceType", "HHHSex", "RespSex", "HHHEthnicity", "IDPoor")) %>% 
+  left_join(data, by = c("interview_key", "RiceType")) %>% 
   drop_na(RiceType) %>%
   distinct(interview_key, .keep_all = TRUE)
 
@@ -227,8 +267,14 @@ PHLossesByIDPoor <- HHFullPHLAgricRoster %>%
   mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
   rename(Disagregation = IDPoor)
 
+PHLossesByRiceProduced <- HHFullPHLAgricRoster %>% 
+  group_by(RiceProduced) %>% 
+  summarise(AvgPHLoss = mean(AvgPHLoss, na.rm = TRUE)) %>% 
+  mutate(AvgPHLoss = round(AvgPHLoss, 2)) %>% 
+  rename(Disagregation = RiceProduced)
+
 # Combine the tables
-PHLosses <- bind_rows(TotalPHLosses, PHLossesByGender, PHLossesByEthnicity, PHLossesByRiceType, PHLossesByIDPoor) %>% 
+PHLosses <- bind_rows(TotalPHLosses, PHLossesByGender, PHLossesByEthnicity, PHLossesByRiceType, PHLossesByIDPoor, PHLossesByRiceProduced) %>% 
   mutate_if(is.character, as.factor)
 
 # Write the table to an excel file
@@ -275,8 +321,17 @@ IDPoorIncProduction <- HHFullPHLAgricRoster %>%
   rename(Disagregation = IDPoor) %>% 
   select(Disagregation, Percentage)
 
+RiceProducedIncProduction <- HHFullPHLAgricRoster %>% 
+  group_by(PSAMSNutCropIncr, RiceProduced) %>% 
+  summarise(Count = n()) %>% 
+  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
+  ungroup() %>%
+  filter(PSAMSNutCropIncr == "More") %>% 
+  rename(Disagregation = RiceProduced) %>% 
+  select(Disagregation, Percentage)
+
 ## Merge the tables
-IncProduction <- bind_rows(TotalIncProduction, GenderIncProduction, EthnicityIncProduction, IDPoorIncProduction) %>% 
+IncProduction <- bind_rows(TotalIncProduction, GenderIncProduction, EthnicityIncProduction, IDPoorIncProduction, RiceProducedIncProduction) %>% 
   mutate_if(is.character, as.factor) %>% 
   #round the percentage to 2 decimal places
   mutate(Percentage = round(Percentage, 2))

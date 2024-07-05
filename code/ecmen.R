@@ -54,6 +54,7 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
   # Create the ECMEN variable by comparing the TotalExpPerCapita by the Minimum Expenditure Basket (MEB)
   mutate(ECMEN = case_when(
     TotalExpPerCapita >=  OldMEB ~ "Able to meet essential needs",
+    
     TotalExpPerCapita < OldMEB ~ "Unable to meet essential needs"
   )) %>%
   # Calculate survival ecmen
@@ -62,6 +63,23 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
     TotalExpPerCapita < OldSMEB ~ "Unable to Survive"
   )) %>% 
   filter(TotalExpPerCapitaUSD < 500)
+
+
+RiceProducedData <- read_excel("data/RiceProduced.xlsx") 
+
+# Join the two datasets
+ECMENdata <- left_join(ECMENdata, RiceProducedData, by = "interview_key")
+
+ECMENdata <- ECMENdata %>% 
+  mutate(RiceProduced = case_when(
+    is.na(RiceProduced) ~ "No Rice Production",
+    TRUE ~ RiceProduced),
+    RiceType = case_when(
+      is.na(RiceType) ~ "No Rice Production",
+      TRUE ~ RiceType)) %>% 
+  # Mutate the rice produced and rice type to a factor
+  mutate(RiceProduced = as.factor(RiceProduced),
+         RiceType = as.factor(RiceType))
 
 ############################################################END OF DATA CLEANING##############################################################################
 
@@ -118,16 +136,73 @@ HHHSexECMEN <- ECMENdata %>%
     rename(ECMENStatus = "ECMEN") %>% 
     select(ECMENStatus, Disagregation, everything()) %>% 
     filter(Disagregation != "Don't Know")
-  
+ 
+ # Economic Capacity by RiceProduced
+ ECMENRiceProduced <- ECMENdata %>% 
+    group_by(RiceProduced) %>%
+    count(ECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2))%>%
+    rename(Disagregation = RiceProduced) %>%
+    rename(ECMENStatus = "ECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything()) 
+ 
+
   # Combine the three tables into one
-  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN, ECMENBaseline, ECMENIDPoor) %>% 
+  ECMENIndicators <- bind_rows(OveralECMEN, HHHSexECMEN, HHHEthnicityECMEN, ECMENBaseline, ECMENIDPoor, ECMENRiceProduced) %>% 
   # Change all character variables to factors
   mutate_if(is.character, as.factor)
   
   # Write this into an xlsx file
   write.xlsx(ECMENIndicators, "report/ECMENIndicators.xlsx")
+  
+  write.xlsx(ECMENRiceProduced, "report/ECMENRiceProduced.xlsx")
 
 ##Calculate the economic capacity of the households(Avergae per capita expenditure)
+  
+# Survival MEB
+  SurvivalECMENTot <- ECMENdata %>% 
+    count(SurvivalECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2)) %>% 
+    # Mutate a variable and assign a value to it which is overal ecmen
+    mutate(Disagregation = "Overall") %>% 
+    rename(ECMENStatus = "SurvivalECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything())
+  
+  # Survival ECMEN disagregated by Gender of the household head
+  SurvivalECMENHHHSex <- ECMENdata %>% 
+    group_by(HHHSex) %>%
+    count(SurvivalECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2)) %>%
+    rename(Disagregation = HHHSex) %>%
+    rename(ECMENStatus = "SurvivalECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything())
+  
+  # Survival ECMEN Disaggregated by HHHEthnicity
+  SurvivalECMENHHHEthnicity <- ECMENdata %>%
+    group_by(HHHEthnicity) %>%
+    count(SurvivalECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2))%>%
+    rename(Disagregation = HHHEthnicity) %>%
+    rename(ECMENStatus = "SurvivalECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything()) %>% 
+    filter(Disagregation != "Foreigners")
+  
+  # Survival ECMEN Disaggregated by Rice Produced
+  SurvivalECMENRiceProduced <- ECMENdata %>% 
+    group_by(RiceProduced) %>%
+    count(SurvivalECMEN) %>% 
+    mutate(Percentage = round(100 * n / sum(n), 2))%>%
+    rename(Disagregation = RiceProduced) %>%
+    rename(ECMENStatus = "SurvivalECMEN") %>% 
+    select(ECMENStatus, Disagregation, everything())
+  
+  
+  SurviaECMENIndicators <- bind_rows(SurvivalECMENTot, SurvivalECMENHHHSex, SurvivalECMENHHHEthnicity, SurvivalECMENRiceProduced) %>% 
+    # Change all character variables to factors
+    mutate_if(is.character, as.factor)
+  
+  # Write this into an xlsx file
+  write.xlsx(SurviaECMENIndicators, "report/SurviaECMENIndicators.xlsx")
   
   # Indicator 4: Average economic per capita capacity 
   ECMENIncTot <- ECMENdata %>%
@@ -152,12 +227,20 @@ HHHSexECMEN <- ECMENdata %>%
     group_by(IDPoor) %>%
     summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
     rename(Disagregation = IDPoor)
+  
+  # Indicator disagregrated by rice produced
+  ECMENIncRiceProduced <- ECMENdata %>%
+    group_by(RiceProduced) %>%
+    summarise(AvgEconomicCapacityUSD = round(mean(TotalExpPerCapitaUSD, na.rm = TRUE),2)) %>% 
+    rename(Disagregation = RiceProduced)
 
 # Combine the three tables into one
-ECMENIncIndicators <- bind_rows(ECMENIncTot, ECMENIncHHHSex, ECMENIncHHHEthnicity, ECMENIncIDPoor) %>% select(Disagregation, AvgEconomicCapacityUSD)
+ECMENIncIndicators <- bind_rows(ECMENIncTot, ECMENIncHHHSex, ECMENIncHHHEthnicity, ECMENIncIDPoor, ECMENIncRiceProduced) %>% select(Disagregation, AvgEconomicCapacityUSD)
 
 # Write this into an xlsx file
 write.xlsx(ECMENIncIndicators, "report/ECMENIncIndicators.xlsx")
+
+write.xlsx(ECMENIncRiceProduced, "report/ECMENIncRiceProduced.xlsx")
 
 ############################################################END OF INDICATOR CALCULATION########################################  
 
