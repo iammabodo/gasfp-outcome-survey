@@ -33,3 +33,7 @@ docs/
 po/*~
 # RStudio Connect folder
 rsconnect/
+# the data folder
+data/
+# The report folder
+report/
