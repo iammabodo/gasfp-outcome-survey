@@ -28,7 +28,7 @@ SafetyConcernsTotal <- SafetyConcerns %>%
   group_by(HHAsstSecurity) %>% 
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>%
-  filter(HHAsstSecurity == "Yes") %>%
+  filter(HHAsstSecurity == "No") %>%
   select(HHAsstSecurity, Percentage) %>%
   # Change Yes to Total
   mutate(HHAsstSecurity = "Total") %>%
@@ -39,7 +39,7 @@ SafetyConcernsGender <- SafetyConcerns %>%
   group_by(RespSex, HHAsstSecurity) %>% 
   summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(HHAsstSecurity == "Yes") %>%
+  filter(HHAsstSecurity == "No") %>%
   select(RespSex, Percentage) %>%
   rename(Disaggregation = RespSex)
 
@@ -48,7 +48,7 @@ SafetyConcernsEthnicity <- SafetyConcerns %>%
   group_by(HHHEthnicity, HHAsstSecurity) %>% 
   summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(HHAsstSecurity == "Yes") %>%
+  filter(HHAsstSecurity == "No") %>%
   select(HHHEthnicity, Percentage) %>%
   rename(Disaggregation = HHHEthnicity)
 
@@ -79,7 +79,7 @@ BarriersToTrainingTotal <- BarriersToTraining %>%
   summarise(Count = n()) %>% 
   mutate(Percentage = (Count / sum(Count)) * 100) %>%
   ungroup() %>%
-  filter(HHAsstAccess == "Yes") %>%
+  filter(HHAsstAccess == "No") %>%
   select(HHAsstAccess, Percentage) %>%
   # Change Yes to Total
   mutate(HHAsstAccess = "Total") %>%
@@ -91,7 +91,7 @@ BarriersToTrainingGender <- BarriersToTraining %>%
   summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
   ungroup() %>%
-  filter(HHAsstAccess == "Yes") %>%
+  filter(HHAsstAccess == "No") %>%
   select(RespSex, Percentage) %>%
   rename(Disaggregation = RespSex)
 
@@ -102,7 +102,7 @@ BarriersToTrainingEthnicity <- BarriersToTraining %>%
   summarise(Count = n()) %>%
   mutate(Percentage = (Count / sum(Count)) * 100) %>% 
   ungroup() %>%
-  filter(HHAsstAccess == "Yes" & HHHEthnicity != "Foreigners") %>%
+  filter(HHAsstAccess == "No" & HHHEthnicity != "Foreigners") %>%
   select(HHHEthnicity, Percentage) %>%
   rename(Disaggregation = HHHEthnicity)
 

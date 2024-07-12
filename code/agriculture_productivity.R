@@ -63,7 +63,7 @@ SAMSRoster <- left_join(PSAMSRiceRoster,
   mutate(PSAMSRiceSellQuant = as.numeric(PSAMSRiceSellQuant),
          PSAMSRiceSellMN = as.numeric(PSAMSRiceSellMN),
          PSAMSRiceInputsMN = as.numeric(PSAMSRiceInputsMN),
-         PSAMSPHLCommArea = as.numeric(PSAMSPHLCommArea))
+         PSAMSPHLCommArea = as.numeric(PSAMSPHLCommArea)) 
 
 
 # Load in the household full roster data. This is essential for dis aggregations
@@ -132,40 +132,6 @@ HHFullAgricIncomeRoster <- left_join(HHFullDemographicRoster, RiceIncome, by = "
   #Mutate every character variable to be a factor
   mutate_if(is.character, as.factor)
 
-HHFullAgricIncomeRoster %>% 
-  group_by(HHHEthnicity, RiceProduced) %>% 
-  summarise(Count = n(),
-            medianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
-  ungroup() %>%
-  filter(HHHEthnicity != "Foreigners") %>% 
-  write.xlsx("report/IncomeFromRiceProductionNew.xlsx")
-  ggplot(aes(x=RiceProduced, y=Count, fill=HHHEthnicity)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.8), width=0.7) +
-  scale_y_continuous(
-    limits = c(0, 140),
-    breaks = seq(0, 140, by = 20), 
-    expand = c(0, 0) # The horizontal axis does not extend to either side
-  ) + 
-  # #geom_text(aes(label=Count), position=position_dodge(width=0.8), 
-  #           vjust=2.5, 
-  #           size=5,
-  #           colour = "white") + 
-  scale_fill_manual(values=c("Ethnic Majority"="#1f78b4", "Ethnic Minority"="#33a02c")) + 
-  labs(title="Clear evidence that Ethnic Minorities prefer to produce organic rice \n whilst ethnic majority prefer non-organic rice",
-       x="Type of Rice Produced",
-       y="Number of Farmers") +
-  theme_minimal()+
-  theme(
-    # Set background color to white
-    panel.background = element_rect(fill = "white"),
-    # Set the color and the width of the grid lines for the horizontal axis
-    panel.grid.major.x = element_line(color = "#A8BAC4", size = 0.3),
-    # Only left line of the vertical axis is painted in black
-    axis.line.y.left = element_line(color = "black"),
-    # But customize labels for the horizontal axis
-    axis.text.x = element_text(family = "Econ Sans Cnd", size = 16),
-    legend.position = "none")
-        
 
 
 
@@ -404,6 +370,61 @@ IncomeEconCapacityData %>%
   scale_x_log10() +
   scale_y_log10()
 
+################################################################CALCULATE RICE INCOME USING The Old Way############################################
+
+OldRiceRevenue <- SAMSRoster%>% 
+  mutate(RiceInc = PSAMSRiceSellQuant * PSAMSRiceSellMN,
+         OldRiceRevenue = RiceInc - PSAMSRiceInputsMN) %>% 
+  group_by(interview_key) %>% 
+  mutate(OldRiceRevenue = sum(OldRiceRevenue, na.rm = TRUE)) %>% 
+  ungroup() %>%
+  distinct(interview_key, .keep_all = TRUE) %>% 
+  select(interview_key, OldRiceRevenue) %>% 
+  # Join with the HHFullDemographicRoster
+  left_join(HHFullDemographicRoster, by = "interview_key")
+  
+# Calculate the total rice income by finding the median of the OldRiceRevenue
+TotOldRiceIncome <- OldRiceRevenue %>% 
+  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
+  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
+  mutate(Disagregation = "Total") %>% 
+  select(Disagregation, MedianOldRiceIncome)
+
+# Calculate the total rice income by finding the median of the OldRiceRevenue, after grouping by HHHSex
+OldRiceIncomeByGender <- OldRiceRevenue %>% 
+  filter(!is.na(HHHSex)) %>%
+  group_by(HHHSex) %>% 
+  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
+  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
+  rename(Disagregation = HHHSex)
+
+# Calculate the total rice income by finding the median of the OldRiceRevenue, after grouping by HHHEthnicity
+OldRiceIncomeByEthnicity <- OldRiceRevenue %>% 
+  filter(!is.na(HHHEthnicity)) %>%
+  group_by(HHHEthnicity) %>% 
+  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
+  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
+  filter(HHHEthnicity != "Foreigners") %>% 
+  rename(Disagregation = HHHEthnicity)
+
+# Calculate the total rice income by finding the median of the OldRiceRevenue, after grouping by IDPoor
+OldRiceIncomeByIDPoor <- OldRiceRevenue %>% 
+  filter(!is.na(IDPoor)) %>%
+  group_by(IDPoor) %>% 
+  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
+  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
+  rename(Disagregation = IDPoor)
+
+# Combine the tables
+OldRiceIncome <- bind_rows(TotOldRiceIncome, OldRiceIncomeByGender, OldRiceIncomeByEthnicity, OldRiceIncomeByIDPoor) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  # Covert the values to US$
+  mutate(MedianOldRiceIncome = MedianOldRiceIncome / 4100) %>% 
+  # Round the values to 2 decimal places
+  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2))
+
+
+write.xlsx(OldRiceIncome, "report/OldRiceIncome.xlsx")
 
 
 

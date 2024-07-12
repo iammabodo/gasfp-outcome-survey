@@ -7,7 +7,7 @@ library(ggshadow)
 # Loading From The Master File --------------------------------------------
 HHRoster <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>% 
   # Select relevant columns to calculate ECMEN
-  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, AGE_Resp, HHHEthnicity, HHHLanguage, IDPoor, SEX_HHH, # Identification variables 
+  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, SEX_Resp, AGE_Resp, HHHEthnicity, HHHLanguage, HHHEducation, IDPoor, SEX_HHH, # Identification variables 
          starts_with("HHExp"), # Variables to calculate ECMEN
          contains("SAMSPHL"), # Agricultural Production variables
          starts_with("HHAsst"), starts_with("HHDTP"), starts_with("RGenEntity"), # Cross cutting variables
@@ -29,7 +29,7 @@ HHRoster <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx") %>%
       HHHEthnicity == 2  | HHHEthnicity == 4  | HHHEthnicity == 5 | 
                            HHHEthnicity == 6 | HHHEthnicity == 7 | HHHEthnicity == 8 | 
                            HHHEthnicity == 9 | HHHEthnicity == 10 ~ "Ethnic Minority",
-      TRUE ~ "Foreigners"),
+      TRUE ~ NA),
     HHHLanguage = case_when(
       HHHLanguage == 1 ~ "Khmer",
       HHHLanguage == 2 ~ "Bunong",
@@ -207,15 +207,7 @@ PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx")
 # Full Household rice production roster join the 2 PSAMSRiceRoster and PSAMSHarvestRoster
 
 ArgricProductionRoster <- left_join(PSAMSRiceRoster, PSAMSHarvestRoster, by = c("interview_key", "RiceType")) 
-  # Calculate the level of annual agricultural production per farmer
-  
-NewArgricProductionRoster <- ArgricProductionRoster%>%  
-  group_by(interview_key) %>%
-  mutate(AnnualProduction = sum(PSAMSPHLCommQuant)) 
 
-
-NewArgricProductionRoster %>% 
-  filter(AnnualProduction > PSAMSPHLCommQuant)
 
 # Now we have all the data we need to calculate all the indicators. Now let us merge all the different data sets, starting with the household roster
 
@@ -232,14 +224,14 @@ FullHHRoster <- left_join(HHRoster, HHDisabRoster, by = "interview_key") %>%
 write.xlsx(FullHHRoster, "data/FullHHRosterClean.xlsx")
 
 
-###################################END OF CODE###############################################
+###################################END OF CLEANING CODE###############################################
 
 ############################CALCULATE DEMOGRAPHIC CHARACTEISTICS################################
 
 HHCharacteristics <- FullHHRoster %>% 
   distinct(interview_key, .keep_all = TRUE) %>%
   # Select necessary variables to look at general sample characteristics
-  select(interview_key, HHID, HHList, HHBaseline, HHHEthnicity, HHHLanguage,
+  select(interview_key, HHID, HHList, HHBaseline, HHHEthnicity, HHHLanguage,AGE_Resp,
          IDPoor, HHHSex, RespSex, ADMIN4Name, ACName, HHDisab, NumDisab, Produced) %>% 
   # Mutate where is character to factor
   mutate_if(is.character, as.factor)
@@ -249,6 +241,7 @@ write.xlsx(HHCharacteristics, "data/HHCharacteristics.xlsx")
 
 
 HHCharacteristicsGender <- HHCharacteristics %>% 
+  drop_na(HHHEthnicity) %>% 
   group_by(HHHSex) %>% 
   summarise(Count = n()) %>% 
   # mutate the percentage
@@ -256,6 +249,7 @@ HHCharacteristicsGender <- HHCharacteristics %>%
   rename(Disaggregation = HHHSex)
   
 HHCharacteristicsRespSex <- HHCharacteristics %>% 
+  drop_na(HHHEthnicity) %>% 
   group_by(RespSex) %>% 
   summarise(Count = n()) %>% 
   # mutate the percentage
@@ -263,6 +257,7 @@ HHCharacteristicsRespSex <- HHCharacteristics %>%
   rename(Disaggregation = RespSex)
 
 HHCharacteristicsEthnicity <- HHCharacteristics %>%
+  drop_na(HHHEthnicity) %>%
   group_by(HHHEthnicity) %>% 
   summarise(Count = n()) %>% 
   # mutate the percentage
@@ -270,6 +265,7 @@ HHCharacteristicsEthnicity <- HHCharacteristics %>%
   rename(Disaggregation = HHHEthnicity)
 
 HHCharacteristicsACName <- HHCharacteristics %>% 
+  drop_na(HHHEthnicity) %>%
   group_by(ACName) %>% 
   summarise(Count = n()) %>% 
   # mutate the percentage
@@ -313,30 +309,8 @@ HHCharacteristicsMerge <- HHCharacteristicsGender %>%
 write.xlsx(HHCharacteristicsMerge, "report/HHCharacteristicsMerge.xlsx")
 
 
-HHCharacteristics %>% 
-  group_by(ACName) %>% 
-  summarise(Count = n()) %>% 
-  arrange(Count) %>%  # Arrange in ascending order of Count
-  ggplot(aes(x = reorder(ACName, Count), y = Count)) + 
-  geom_col(width = 0.5) + 
-  coord_flip() +  
-  theme(
-    panel.background  = element_rect(fill = "white"),
-    panel.grid.major.x = element_line(color = "#A8BAC4", size = 0.3),
-    axis.ticks.length = unit(0, "mm"),
-    axis.title = element_blank(),
-    axis.line.y.left = element_line(color = "black", linewidth = 0.5),
-    axis.text.y = element_blank()) + 
-  geom_text(
-            data = subset(HHCharacteristics, count > 50),
-            aes(label = ACName), 
-            hjust = 0, 
-            size = 3,
-            nudge_x = 0.3,
-            color = "blue",
-            bg.colour = "white",
-            bg.r = 0.2,
-            size = 7)
+###############################################################################END OF CODE########################################################################################
+
 
 
 
