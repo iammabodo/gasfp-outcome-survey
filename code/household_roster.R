@@ -289,11 +289,16 @@ HHCharacteristicsDisab <- HHCharacteristics %>%
 
 
 HHCharacteristics %>% 
-  group_by(ACName, HHHEthnicity) %>%
+  group_by(ACName) %>%
   summarise(Count = n()) %>%
   # Calculate percentage per group
-  mutate(Percentage = (Count / sum(Count)) * 100) %>% 
-  filter(HHHEthnicity == "Ethnic Minority")
+  mutate(Percentage = (Count / sum(Count)) * 100) 
+
+HHC <- HHCharacteristics %>% 
+  group_by(ADMIN4Name) %>%
+  summarise(Count = n()) %>%
+  # Calculate percentage per group
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
 # merge the tables
 HHCharacteristicsMerge <- HHCharacteristicsGender %>% 
@@ -307,6 +312,10 @@ HHCharacteristicsMerge <- HHCharacteristicsGender %>%
 
   
 write.xlsx(HHCharacteristicsMerge, "report/HHCharacteristicsMerge.xlsx")
+
+HHCharacteristics %>% 
+  filter(HHBaseline == "New Members") %>%
+  count(HHHEthnicity)
 
 
 ###############################################################################END OF CODE########################################################################################

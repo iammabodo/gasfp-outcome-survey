@@ -31,7 +31,52 @@ PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>%
     TRUE ~ "Don't Know"),
     RiceType = case_when(
     Roster_PSAMSRice_id == 1 ~ "Organic Rice",
-    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice"))
+    Roster_PSAMSRice_id == 2 ~ "Non Organic Rice")) %>% 
+  # Mutate PSAMSRiceIncome, PSAMSRiceSellQuant, Income to be numeric
+  mutate(PSAMSRiceIncome = as.numeric(PSAMSRiceIncome),
+         PSAMSRiceSellQuant = as.numeric(PSAMSRiceSellQuant),
+         Income = as.numeric(Income),
+         PSAMSRiceInputsMN = as.numeric(PSAMSRiceInputsMN)) %>% 
+  # Join with the HHcharacteristics data
+  left_join(HHFullDemographicRoster, by = "interview_key")
+
+SmallRiceRoster <- PSAMSRiceRoster %>% 
+  filter(PSAMSRiceSell == "Yes") 
+
+summary_stats <- SmallRiceRoster %>%
+  group_by(interview_key) %>%
+  mutate(TotalIncome = sum(Income, na.rm = TRUE)) %>%
+  ungroup() %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
+  summarise(
+    Q1 = quantile(TotalIncome, 0.25, na.rm = TRUE),
+    Q3 = quantile(TotalIncome, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(
+    IQR = Q3 - Q1,
+    LowerBound = Q1 - 1.5 * IQR,
+    UpperBound = Q3 + 1.5 * IQR
+  )
+
+SmallRiceRoster %>%
+  group_by(interview_key) %>%
+  mutate(TotalIncome = sum(Income, na.rm = TRUE)) %>%
+  ungroup() %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
+  filter(TotalIncome >= summary_stats$LowerBound[1] & TotalIncome <= summary_stats$UpperBound[1]) %>%
+  summarise(
+    MeanIncome = mean(TotalIncome, na.rm = TRUE),
+    MedianIncome = median(TotalIncome, na.rm = TRUE),
+    Count = n()
+  ) %>%
+  mutate(MedianIncome = MedianIncome / 4100)
+
+
+SSDATA <- SmallRiceRoster %>%
+  group_by(interview_key) %>% 
+  filter(n()>1)
+
+
 
 # Import second roster data. Essential for the calculation of Post Harvest Loses
 PSAMSHarvestRoster <- read_excel("data/Roster_HarvestNumb_Cleaned_Numeric.xlsx") %>% 
@@ -74,110 +119,113 @@ HHFullDemographicRoster <- read_excel("data/FullHHRosterClean.xlsx") %>%
   # Distinct the data
   distinct(interview_key, .keep_all = TRUE)
 
-## Calculate income from rice production
-RiceIncomeRoster <- SAMSRoster %>% 
-  distinct(interview_key, RiceType, .keep_all = TRUE) %>% 
-  select(interview_key, RiceType, total_production, PSAMSPHLCommQuant, PSAMSPHLCommArea, PSAMSNutCropIncr,
-         PSAMSRiceSellQuant, PSAMSPHLCommArea_Unit, PSAMSRiceSellMN, PSAMSRiceInputsMN, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>%
-  # Mutate rice revenue
-  mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1100, total_production * 1200)) %>% 
-  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>%
-  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
-  # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
-  mutate(PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
-         PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
-  group_by(interview_key, RiceType) %>%
-  mutate(PSAMSRiceRevenue = sum(PSAMSRiceRevenue, na.rm = TRUE)) %>%
-  # Mutate PSAMSRiceIncome
-  mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>% 
-  # Change this income to USD
-  mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) %>%
-  # Round the income to 2 decimal places
-  mutate(PSAMSRiceIncome = round(PSAMSRiceIncome, 2))
+######################################################RICE INCOME CALCULATION (Realistic Estimation)###################################################
+## Calculate income from rice production. This is significantly different from the baseline calculation
+## It gives a more realistic estimation of the income from rice production, as advised by the World Bank
 
-# Merge the HHFullAgricRoster with the RiceIncomeRoster. To be used for calculation of indicator 3. 
-# Total household income from rice production
-HHFullAgricRoster <- left_join(HHFullDemographicRoster, RiceIncomeRoster, by = "interview_key") %>% 
-  drop_na(RiceType)
+# RiceIncomeRoster <- SAMSRoster %>% 
+#   distinct(interview_key, RiceType, .keep_all = TRUE) %>% 
+#   select(interview_key, RiceType, total_production, PSAMSPHLCommQuant, PSAMSPHLCommArea, PSAMSNutCropIncr,
+#          PSAMSRiceSellQuant, PSAMSPHLCommArea_Unit, PSAMSRiceSellMN, PSAMSRiceInputsMN, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>%
+#   # Mutate rice revenue
+#   mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1100, total_production * 1200)) %>% 
+#   mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>%
+#   mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
+#   # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
+#   mutate(PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
+#          PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
+#   group_by(interview_key, RiceType) %>%
+#   mutate(PSAMSRiceRevenue = sum(PSAMSRiceRevenue, na.rm = TRUE)) %>%
+#   # Mutate PSAMSRiceIncome
+#   mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>% 
+#   # Change this income to USD
+#   mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) %>%
+#   # Round the income to 2 decimal places
+#   mutate(PSAMSRiceIncome = round(PSAMSRiceIncome, 2))
+# 
+# # Merge the HHFullAgricRoster with the RiceIncomeRoster. To be used for calculation of indicator 3. 
+# # Total household income from rice production
+# HHFullAgricRoster <- left_join(HHFullDemographicRoster, RiceIncomeRoster, by = "interview_key") %>% 
+#   drop_na(RiceType)
 
 ####################################ICOME FROM RICE PRODUCTION############################################
-
+# USE THIS SCRIPT TO CALCULATE THE INCOME FROM RICE PRODUCTION USING THE MORE REALISTIC WAY, IF AGREED UPON BY THE TEAM. OTHREWISE, USE THE OLD WAY
 # Mutate the variable  to indicate which rice types did the farmer produce (i.e., Organic, Non-Organic or Both)
-# This is not a requiredment, but a necessity in case we want to see how income is different among these three groups
-data <- HHFullAgricRoster %>%
-  group_by(interview_key) %>%
-  mutate(RiceProduced = case_when(
-    any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
-    all(RiceType == "Organic Rice") ~ "Organic Rice",
-    all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
-  )) %>%
-  distinct(interview_key, .keep_all = TRUE) %>%
-  select(interview_key, RiceProduced, RiceType)
+# This is not a requirement, but a necessity in case we want to see how income is different among these three groups
+# RiceProductionData <- HHFullAgricRoster %>%
+#   group_by(interview_key) %>%
+#   mutate(RiceProduced = case_when(
+#     any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
+#     all(RiceType == "Organic Rice") ~ "Organic Rice",
+#     all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
+#   )) %>%
+#   distinct(interview_key, .keep_all = TRUE) %>%
+#   select(interview_key, RiceProduced, RiceType)
+# 
+# write.xlsx(RiceProductionData, "data/RiceProduced.xlsx")
+# 
+# # Calculate average and median rice income for the total farmers (Version 1)
+# RiceIncome <- HHFullAgricRoster %>% 
+#   group_by(interview_key) %>% 
+#   summarise(TotalRiceIncome = sum(PSAMSRiceIncome, na.rm = TRUE)) %>% 
+#   ungroup() %>%
+#   # Merge with data to get the rice type
+#   left_join(RiceProductionData, by = "interview_key")
+# 
+# # Join the HHFullDemographicRoster with the RiceIncome.
+# # This join is important such that we can have the disagregations in the indicator calculation
+# 
+# HHFullAgricIncomeRoster <- left_join(HHFullDemographicRoster, RiceIncome, by = "interview_key") %>% 
+#   drop_na(RiceProduced) %>% 
+#   #Mutate every character variable to be a factor
+#   mutate_if(is.character, as.factor)
+# 
+# 
+# # Calculate income from Rice Production
+# IncomeFromRiceProduction <- HHFullAgricIncomeRoster %>% 
+#   summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+#   mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+#   mutate(Disagregation = "Total") %>% 
+#   select(Disagregation, RiceIncome)
+# 
+# # Calculate midean income disaggregated by the gender of the household heard
+# IncomeByGender <- HHFullAgricIncomeRoster %>% 
+#   group_by(HHHSex) %>% 
+#   summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+#   mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+#   rename(Disagregation = HHHSex)
+# 
+# 
+# # Calculate median income disaggregated by HHHEthnicity
+# IncomeByEthnicity <- HHFullAgricIncomeRoster %>% 
+#   group_by(HHHEthnicity) %>% 
+#   summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+#   mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+#   filter(HHHEthnicity != "Foreigners") %>% 
+#   rename(Disagregation = HHHEthnicity)
+# 
+# # Calculate midean income disaggregated by RiceProduced
+# IncomeByRiceProduced <- HHFullAgricIncomeRoster %>% 
+#   group_by(RiceProduced) %>% 
+#   summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+#   mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+#   rename(Disagregation = RiceProduced)
+# 
+# # Calculate midean income disaggregated by IDPoor
+# IncomeByIDPoor <- HHFullAgricIncomeRoster %>% 
+#   group_by(IDPoor) %>% 
+#   summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+#   mutate(RiceIncome = round(RiceIncome, 2)) %>% 
+#   rename(Disagregation = IDPoor)
+# 
+# # Combine the tables
+# IncomeFromRiceProduction <- bind_rows(IncomeFromRiceProduction, IncomeByGender, IncomeByEthnicity, IncomeByRiceProduced, IncomeByIDPoor) %>% 
+#   mutate_if(is.character, as.factor)
+# 
+# # Write the table to an excel file
+# write.xlsx(IncomeFromRiceProduction, "report/IncomeFromRiceProduction.xlsx")
 
-write.xlsx(data, "data/RiceProduced.xlsx")
 
-# Calculate average and median rice income for the total farmers
-RiceIncome <- HHFullAgricRoster %>% 
-  group_by(interview_key) %>% 
-  summarise(TotalRiceIncome = sum(PSAMSRiceIncome, na.rm = TRUE)) %>% 
-  ungroup() %>%
-  # Merge with data to get the rice type
-  left_join(data, by = "interview_key")
-
-# Join the HHFullDemographicRoster with the RiceIncome.
-# This join is improtant such that we can have the disagregations in the indicator calculation
-
-HHFullAgricIncomeRoster <- left_join(HHFullDemographicRoster, RiceIncome, by = "interview_key") %>% 
-  drop_na(RiceProduced) %>% 
-  #Mutate every character variable to be a factor
-  mutate_if(is.character, as.factor)
-
-
-
-
-# Calculate income from Rice Production
-IncomeFromRiceProduction <- HHFullAgricIncomeRoster %>% 
-  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
-  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
-  mutate(Disagregation = "Total") %>% 
-  select(Disagregation, RiceIncome)
-
-# Calculate midean income disaggregated by the gender of the household heard
-IncomeByGender <- HHFullAgricIncomeRoster %>% 
-  group_by(HHHSex) %>% 
-  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
-  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
-  rename(Disagregation = HHHSex)
-
-
-# Calculate midean income disaggregated by HHHEthnicity
-IncomeByEthnicity <- HHFullAgricIncomeRoster %>% 
-  group_by(HHHEthnicity) %>% 
-  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
-  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
-  filter(HHHEthnicity != "Foreigners") %>% 
-  rename(Disagregation = HHHEthnicity)
-
-# Calculate midean income disaggregated by RiceProduced
-IncomeByRiceProduced <- HHFullAgricIncomeRoster %>% 
-  group_by(RiceProduced) %>% 
-  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
-  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
-  rename(Disagregation = RiceProduced)
-
-# Calculate midean income disaggregated by IDPoor
-IncomeByIDPoor <- HHFullAgricIncomeRoster %>% 
-  group_by(IDPoor) %>% 
-  summarise(RiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
-  mutate(RiceIncome = round(RiceIncome, 2)) %>% 
-  rename(Disagregation = IDPoor)
-
-# Combine the tables
-IncomeFromRiceProduction <- bind_rows(IncomeFromRiceProduction, IncomeByGender, IncomeByEthnicity, IncomeByRiceProduced, IncomeByIDPoor) %>% 
-  mutate_if(is.character, as.factor)
-
-# Write the table to an excel file
-write.xlsx(IncomeFromRiceProduction, "report/IncomeFromRiceProduction.xlsx")
 ####################################POST HARVEST LOSSES####################################################
 # Calculate average post harvest losses
 
@@ -245,6 +293,7 @@ PHLosses <- bind_rows(TotalPHLosses, PHLossesByGender, PHLossesByEthnicity, PHLo
 
 # Write the table to an excel file
 write.xlsx(PHLosses, "report/PHLosses.xlsx")
+
 ####################################INCREASE IN RICE PRODUCTION####################################################
 
 # Calculate the percentage of farmers reporting increase in rice production
@@ -304,6 +353,7 @@ IncProduction <- bind_rows(TotalIncProduction, GenderIncProduction, EthnicityInc
 
 # Write the table to an excel file
 write.xlsx(IncProduction, "report/IncProduction.xlsx")
+
 #############################################RICE PRODUCTION####################################################
 # Calculate the total rice production per hectare
 ProductivityByRiceType <- HHFullAgricRoster %>% 
@@ -319,117 +369,221 @@ ProductivityByGender <- HHFullAgricRoster %>%
 
 ProductivityByEthnicity <- HHFullAgricRoster %>% 
   mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>%
-  group_by(RiceType, HHHEthnicity) %>%
-  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE)) %>% 
-  filter(HHHEthnicity != "Foreigners")
+  group_by(RiceType) %>%
+  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE)) 
 
 
 
 ##############################################END OF SCRIPT####################################################
 
+# Join ECMEN Data and Rice Income data. THIS IS NOT A REQUIREMENT, BUT RATHER MAYBE USED FOR FURTHER ANALYSIS ON THE RELATIONSHIP BETWEEN RICE INCOME AND,
+# TOTAL EXPENDITURE PER CAPITA, RICE INCOME PER CAPITA, AND RICE INCOME PER MONTH PER CAPITA
 
+IncomeEconCapacityData <- ECMENdata %>%
+   select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity,
+          TotalExpPerCapitaUSD) %>%
+   # Left journey with the RiceIncome data
+   left_join(RiceIncome, by = "interview_key") %>%
+   # Drop NAs for TotalRiceIncome and RiceProduced
+   drop_na(TotalRiceIncome, RiceProduced) %>%
+   distinct(interview_key, .keep_all = TRUE) %>%
+   # Mutate RiceIncomePerCapita
+   mutate(RiceIncomePerCapita = TotalRiceIncome / HHList,
+          TotalYExpperCapitaUSD = TotalExpPerCapitaUSD * HHList,
+          RiceMPerCapita = RiceIncomePerCapita / 12)
 
-# Join ECMEN Data and Rice Income data
-
-IncomeEconCapacityData <- ECMENdata %>% 
-  select(interview_key, ADMIN4Name, ACName, HHID, HHList, HHBaseline, IDPoor, HHHSex, RespSex, HHHEthnicity,
-         TotalExpPerCapitaUSD) %>% 
-  # Left journey with the RiceIncome data
-  left_join(RiceIncome, by = "interview_key") %>%
-  # Drop NAs for TotalRiceIncome and RiceProduced
-  drop_na(TotalRiceIncome, RiceProduced) %>% 
-  distinct(interview_key, .keep_all = TRUE) %>% 
-  # Mutate RiceIncomePerCapita
-  mutate(RiceIncomePerCapita = TotalRiceIncome / HHList,
-         TotalYExpperCapitaUSD = TotalExpPerCapitaUSD * HHList,
-         RiceMPerCapita = RiceIncomePerCapita / 12)
-
-IncomeEconCapacityData %>% 
-  group_by(RiceProduced) %>% 
-  summarise(meanRiceIncome = mean(TotalRiceIncome, na.rm = TRUE), 
-            meanTE = mean(TotalExpPerCapitaUSD, na.rm = TRUE))
-# Plot the relationship between RiceIncomePerCapita and TotalExpPerCapitaUSD
-
-IncomeEconCapacityData %>% summarise(meanPCI = mean(RiceIncomePerCapita, na.rm = TRUE), meanTE = mean(TotalExpPerCapitaUSD, na.rm = TRUE))
-
-IncomeEconCapacityData %>% 
-  filter(TotalExpPerCapitaUSD < 500) %>%
-  ggplot(aes(x = RiceMPerCapita, y = TotalExpPerCapitaUSD)) +
-  geom_jitter(position = position_dodge(width = 0.8)) +
-  geom_hline(yintercept = OldMEBUSD, linetype = "dashed") +
-  geom_hline(yintercept = OldSMEBUSD, linetype = "dashed") +
-  facet_wrap(~RiceProduced) +
-  scale_x_log10() +
-  scale_y_log10()
-
-
-IncomeEconCapacityData %>% 
-  filter(TotalExpPerCapitaUSD < 500 & HHHEthnicity != "Foreigners") %>%
-  ggplot(aes()) +
-  geom_jitter(position = position_dodge(width = 0.8)) +
-  scale_x_log10() +
-  scale_y_log10()
+ IncomeEconCapacityData %>%
+   group_by(RiceProduced, HHHEthnicity) %>%
+   summarise(Coun = n(),
+            meanRiceIncome = mean(TotalRiceIncome, na.rm = TRUE),
+            meanTE = mean(TotalExpPerCapitaUSD, na.rm = TRUE)) %>%
+   drop_na(HHHEthnicity)
 
 ################################################################CALCULATE RICE INCOME USING The Old Way############################################
-
-OldRiceRevenue <- SAMSRoster%>% 
-  mutate(RiceInc = PSAMSRiceSellQuant * PSAMSRiceSellMN,
-         OldRiceRevenue = RiceInc - PSAMSRiceInputsMN) %>% 
-  group_by(interview_key) %>% 
-  mutate(OldRiceRevenue = sum(OldRiceRevenue, na.rm = TRUE)) %>% 
+RiceIncomeoutliers_summary_stats <- PSAMSRiceRoster %>%
+  filter(PSAMSRiceSell == "Yes") %>%
+  group_by(interview_key) %>%
+  mutate(TotalRiceIncome = sum(Income, na.rm = TRUE)) %>%
   ungroup() %>%
-  distinct(interview_key, .keep_all = TRUE) %>% 
-  select(interview_key, OldRiceRevenue) %>% 
-  # Join with the HHFullDemographicRoster
-  left_join(HHFullDemographicRoster, by = "interview_key")
-  
-# Calculate the total rice income by finding the median of the OldRiceRevenue
-TotOldRiceIncome <- OldRiceRevenue %>% 
-  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
-  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
-  mutate(Disagregation = "Total") %>% 
-  select(Disagregation, MedianOldRiceIncome)
+  distinct(interview_key, .keep_all = TRUE) %>%
+  summarise(
+    Q1 = quantile(TotalRiceIncome, 0.25, na.rm = TRUE),
+    Q3 = quantile(TotalRiceIncome, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(
+    IQR = Q3 - Q1,
+    LowerBound = Q1 - 1.5 * IQR,
+    UpperBound = Q3 + 1.5 * IQR
+  )
 
-# Calculate the total rice income by finding the median of the OldRiceRevenue, after grouping by HHHSex
-OldRiceIncomeByGender <- OldRiceRevenue %>% 
+# Calculate rice income per household
+
+PSAMSRiceIncome <- PSAMSRiceRoster %>% 
+  filter(PSAMSRiceSell == "Yes") %>%
+  distinct(interview_key, RiceType, .keep_all = TRUE) %>%
+  group_by(interview_key) %>% 
+  summarise(TotalRiceIncome = sum(Income, na.rm = TRUE)) %>% 
+  ungroup() %>%
+  # Filtering outliers
+  filter(TotalRiceIncome >= RiceIncomeoutliers_summary_stats$LowerBound[1] & TotalRiceIncome <= RiceIncomeoutliers_summary_stats$UpperBound[1]) %>%
+  # Merge with the PSAMSRiceRoster to get the rice type
+  left_join(HHFullDemographicRoster, by = "interview_key") %>%
+  left_join(RiceProductionData, by = "interview_key") %>%
+  drop_na(HHHEthnicity)
+ 
+
+# Calculate the total rice income by finding the median of the TotalRiceIncome
+TotOldRiceIncome <- PSAMSRiceIncome %>% 
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  mutate(Disagregation = "Total") %>% 
+  select(Disagregation, MedianRiceIncome) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
+
+# Calculate the total rice income by finding the median of the TotalRiceIncome, after grouping by HHHSex
+OldRiceIncomeByGender <- PSAMSRiceIncome %>% 
   filter(!is.na(HHHSex)) %>%
   group_by(HHHSex) %>% 
-  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
-  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
-  rename(Disagregation = HHHSex)
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  rename(Disagregation = HHHSex) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
 
-# Calculate the total rice income by finding the median of the OldRiceRevenue, after grouping by HHHEthnicity
-OldRiceIncomeByEthnicity <- OldRiceRevenue %>% 
-  filter(!is.na(HHHEthnicity)) %>%
+# Calculate the total rice income by finding the median of the TotalRiceIncome, after grouping by HHHEthnicity
+OldRiceIncomeByEthnicity <- PSAMSRiceIncome %>% 
   group_by(HHHEthnicity) %>% 
-  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
-  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
   filter(HHHEthnicity != "Foreigners") %>% 
-  rename(Disagregation = HHHEthnicity)
+  rename(Disagregation = HHHEthnicity) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
 
-# Calculate the total rice income by finding the median of the OldRiceRevenue, after grouping by IDPoor
-OldRiceIncomeByIDPoor <- OldRiceRevenue %>% 
+# Calculate the total rice income by finding the median of the TotalRiceIncome, after grouping by rice produced
+OldRiceIncomeByRiceProduced <- PSAMSRiceIncome %>% 
+  filter(!is.na(RiceProduced)) %>%
+  group_by(RiceProduced) %>% 
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  rename(Disagregation = RiceProduced) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
+
+# Calculate the total rice income by finding the median of the TotalRiceIncome, after grouping by IDPoor
+OldRiceIncomeByIDPoor <- PSAMSRiceIncome %>% 
   filter(!is.na(IDPoor)) %>%
   group_by(IDPoor) %>% 
-  summarise(MedianOldRiceIncome = median(OldRiceRevenue, na.rm = TRUE)) %>% 
-  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2)) %>% 
-  rename(Disagregation = IDPoor)
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE)) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  rename(Disagregation = IDPoor) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
 
 # Combine the tables
-OldRiceIncome <- bind_rows(TotOldRiceIncome, OldRiceIncomeByGender, OldRiceIncomeByEthnicity, OldRiceIncomeByIDPoor) %>% 
-  mutate_if(is.character, as.factor) %>% 
-  # Covert the values to US$
-  mutate(MedianOldRiceIncome = MedianOldRiceIncome / 4100) %>% 
-  # Round the values to 2 decimal places
-  mutate(MedianOldRiceIncome = round(MedianOldRiceIncome, 2))
+OldRiceIncome <- bind_rows(TotOldRiceIncome, OldRiceIncomeByGender, OldRiceIncomeByEthnicity, OldRiceIncomeByRiceProduced, OldRiceIncomeByIDPoor) %>% 
+  mutate_if(is.character, as.factor)
 
 
+OldRiceIncomeByRiceProducedandEthnicity <- PSAMSRiceIncome %>% 
+  group_by(RiceProduced, HHHEthnicity) %>% 
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE),
+            n = n()) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  rename(Disagregation = RiceProduced) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
+
+# Write the table to an excel file
 write.xlsx(OldRiceIncome, "report/OldRiceIncome.xlsx")
 
+write.xlsx(OldRiceIncomeByRiceProducedandEthnicity, "report/OldRiceIncomeByRiceProducedandEthnicity.xlsx")
+# Prices
+
+RicePrices <- PSAMSRiceRoster %>% 
+  filter(PSAMSRiceSell == "Yes" & !is.na(HHHEthnicity)) %>% 
+  group_by(RiceType, HHHSex) %>% 
+  summarise(medianPrice = median(as.numeric(PSAMSRiceSellMN), na.rm = T), 
+            std = sd(as.numeric(PSAMSRiceSellMN), na.rm = T), 
+            minP= min(as.numeric(PSAMSRiceSellMN), na.rm = T), 
+            maxP = max(as.numeric(PSAMSRiceSellMN), na.rm = T), 
+            n = n())
+write.xlsx(RicePrices, "report/RicePrices.xlsx")
+
+RiceProductionData <- HHFullAgricRoster %>%
+  group_by(interview_key) %>%
+  mutate(RiceProduced = case_when(
+    any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
+    all(RiceType == "Organic Rice") ~ "Organic Rice",
+    all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
+  )) %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
+  select(interview_key, RiceProduced, RiceType)
+
+ShortECMEN <- ECMENdata %>%
+  select(interview_key, TotalFoodExp, TotalNonFoodExp, TotalNonFoodIntExp, TotalExp, TotalExpPerCapita, TotalExpPerCapitaUSD) %>%
+  distinct(interview_key, .keep_all = TRUE)
+
+
+ECMENRiceProducers <- PSAMSRiceIncome %>% 
+  left_join(RiceProductionData, by = c("interview_key", "RiceType", "RiceProduced")) %>%
+  left_join(ShortECMEN, by = "interview_key") %>% 
+  # Mutate character variables to factor variables
+  mutate_if(is.character, as.factor)
+
+
+model <- lm(TotalExp ~ TotalRiceIncome + HHHEthnicity + HHHSex +RiceProduced, data = ECMENRiceProducers)
+
+model_interaction <- lm(TotalExp ~ TotalRiceIncome + RiceProduced + TotalRiceIncome * RiceProduced + HHHSex, data = ECMENRiceProducers)
+
+summary(model)
+
+summary(model_interaction)
+
+
+# Create a dataset for predictions
+pred_data <- expand.grid(
+  TotalRiceIncome = seq(min(ECMENRiceProducers$TotalRiceIncome), max(ECMENRiceProducers$TotalRiceIncome), length.out = 100),
+  RiceProduced = c("Non Organic Rice", "Organic Rice"),
+  HHHSex = c("Male", "Female")
+)
+
+# Predict values based on the model
+pred_data$TotalExp <- predict(model_interaction, newdata = pred_data)
+
+# Plot the main effects and interactions
+p <- ggplot(pred_data, aes(x = TotalRiceIncome, y = TotalExp, color = RiceProduced, linetype = HHHSex)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Interaction Effects on Household Expenditure",
+    x = "Total Rice Income",
+    y = "Total Household Expenditure",
+    color = "Type of Rice Produced",
+    linetype = "Household Head Gender"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
+
+# Highlight significant interactions
+p_highlight <- p +
+  geom_point(data = ECMENRiceProducers, aes(x = TotalRiceIncome, y = TotalExp), alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE)
+
+# Print the plot
+print(p_highlight)
 
 
 
 
 
 
-  
+
+
+
+
+
+
+
+
+
+

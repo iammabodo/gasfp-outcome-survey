@@ -8,8 +8,8 @@ BaselineRiceData <- read_excel("data/WFP- GASFP Baseline_Clean Data_V5.xlsx", sh
          PSAMSRiceSellMNUnit, PSAMSRiceInputsMN) %>% 
   distinct(HHID_Unique, .keep_all = TRUE) %>%
   drop_na(PSAMSRiceSellMN, PSAMSRiceQuant, PSAMSRiceSell, PSAMSRiceSellQuant, PSAMSRiceInputsMN) %>% 
-  filter(HH_No == 1 & PSAMSRiceSellQuantUnit <10) %>%
-  filter(PSAMSRiceSellMNUnit < 10) %>% 
+  #filter(HH_No == 1 & PSAMSRiceSellQuantUnit <10) %>%
+  #filter(PSAMSRiceSellMNUnit < 10) %>% 
   # Change the units to character variables 
   mutate(PSAMSRiceSellQuantUnit = case_when(
     PSAMSRiceSellQuantUnit == 1 ~ "gramms",
@@ -42,15 +42,19 @@ BaselineRiceData <- read_excel("data/WFP- GASFP Baseline_Clean Data_V5.xlsx", sh
   # Calculate new rice income
   mutate(NewRiceIncome = PricePerKg * NewPSAMSRiceQuant) %>% 
   # Calculate the Net rice Income
-  mutate(NetRiceIncome = NewRiceIncome - PSAMSRiceInputsMN)
+  mutate(NetRiceIncome = NewRiceIncome - PSAMSRiceInputsMN,
+         OldRiceIncome = PSAMSRiceSellMN - PSAMSRiceInputsMN)
 
 
 BaselineRiceData %>% 
-  summarise(MeanNetRiceIncome = mean(NetRiceIncome),
-            MedianNetRiceIncome = median(NetRiceIncome),
+  summarise(MeanNetRiceIncome = mean(OldRiceIncome),
+            MedianNetRiceIncome = median(OldRiceIncome),
             MinNetRiceIncome = min(NetRiceIncome),
             MaxNetRiceIncome = max(NetRiceIncome),
-            SumNetRiceIncome = sum(NetRiceIncome))
+            SumNetRiceIncome = sum(NetRiceIncome),
+            n= n()) %>% 
+  # Divide every numeric value by 4100 to get the value in USD
+  mutate(MedianNetRiceIncome = MedianNetRiceIncome/ 4100)
 
 
 ######################################BASELINE GENDER AND ECONOMIC EMPOWERMENT INDICATOR###################################
