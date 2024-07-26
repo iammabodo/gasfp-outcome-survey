@@ -34,6 +34,6 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 # the data folder
-data/HHCharacter
+data/
 # The report folder
 report/
