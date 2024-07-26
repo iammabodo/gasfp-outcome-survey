@@ -21,7 +21,13 @@ SafetyConcerns <- CrossCuttingData %>%
   # Mutate the key variable (HHAsstSecurity) to have meaningful labels
   mutate(HHAsstSecurity = case_when(
     HHAsstSecurity == 0 ~ "No",
-    HHAsstSecurity == 1 ~ "Yes"))
+    HHAsstSecurity == 1 ~ "Yes")) %>% 
+  # Set Variable Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHHEthnicity = "Ethnicity of Household Head",
+    RespSex = "Gender of Respondent",
+    HHAsstSecurity = "Safety Concerns telated to the Program")
 
 # Calculate the percentage of beneficiaries reporting safety concerns
 SafetyConcernsTotal <- SafetyConcerns %>% 
@@ -71,7 +77,13 @@ BarriersToTraining <- CrossCuttingData %>%
   mutate(HHAsstAccess = case_when(
     HHAsstAccess == 0 ~ "No",
     HHAsstAccess == 1 ~ "Yes",
-    TRUE ~ "Don't know"))
+    TRUE ~ "Don't know")) %>%
+  # Set Variable Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHHEthnicity = "Ethnicity of Household Head",
+    RespSex =  "Gender of Respondent",
+    HHAsstAccess = "Barriers to Training")
 
 # Indicator Calculation Total
 BarriersToTrainingTotal <- BarriersToTraining %>% 
@@ -131,7 +143,15 @@ TreatedRespectfully <- CrossCuttingData %>%
   # Mutate the key variable (Treated with respect and dignity at the program site) to have meaningful labels
   mutate(HHAsstRespectDign = case_when(
     HHAsstRespect == "Yes" & HHDTPDign == "Yes" ~ "Yes",
-    TRUE ~ "No"))
+    TRUE ~ "No")) %>% 
+  # Set Variable Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHHEthnicity = "Ethnicity of Household Head",
+    RespSex = "Gender of Respondent",
+    HHAsstRespect = "Treated with respect",
+    HHDTPDign = "Treated with dignity",
+    HHAsstRespectDign = "Treated with respect and dignity")
 
 # Calculate the percentage of people reporting being treated with respect and dignity
 TreatedRespectifullyTotal <- TreatedRespectfully %>% 
@@ -195,7 +215,16 @@ AccessibleInformation <- CrossCuttingData %>%
   # Create the Accessible Information variable
   mutate(AccessibleInformation = case_when(
     (HHAsstKnowEnt == "Yes" & HHAsstKnowPeople == "Yes" & HHAsstRecInfo == "Yes" & HHAsstReportMisc == "Yes") ~ "Yes",
-    TRUE ~ "No"))
+    TRUE ~ "No")) %>% 
+  # Set Variable Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHHEthnicity = "Ethnicity of Household Head",
+    RespSex = "Gender of Respondent",
+    HHAsstKnowEnt = "Know how to access the program information",
+    HHAsstKnowPeople = "Know how people were chosen to receive assistance",
+    HHAsstRecInfo = "Received information about the program location etc",
+    HHAsstReportMisc = "Know how to report misconduct")
 
 # Calculate the percentage of beneficiaries reporting accessible information (Total)
 AccessibleInformationTotal <- AccessibleInformation %>% 
@@ -252,7 +281,14 @@ GenderData <- read_excel("data/WFP_GASFP_WO8_NumericV2.xlsx") %>%
     RespGender == 1 ~ "Male",
     RespGender == 0 ~ "Female")) %>% 
   # Filter out respondents below 18 years
-  filter(RespAge >= 18)
+  filter(RespAge >= 18) %>% 
+  # Add variable lables
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHID = "Household ID",
+    HHMemberID = "Household Member ID",
+    RespGender = "Gender of respondent",
+    RespAge = "Age of respondent")
 
 # Combine the demographic characteristics with the cross cutting data
 
@@ -289,7 +325,23 @@ CommunityParticipation <- CrossCuttingData %>%
   # Create the Community Participation variable
   mutate(CommunityParticipation = case_when(
     (RGenEntityNeg == "Yes" | RGenEntityViab == "Yes" | RGenEntityDM == "Yes") ~ "Yes",
-    TRUE ~ "No"))
+    TRUE ~ "No")) %>% 
+  # Set Variable Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHID = "Household ID",
+    IDPoor = "Household IDPoor Status",
+    HHHEthnicity = "Ethnicity of Household Head",
+    RespGender = "Gender of Respondent",
+    RespAge = "Age of Respondent",
+    RGenEntityYN = "Member of AC Management Committee",
+    RGenEntityRights = "Know Rights and responsibilities of AC members",
+    RGenEntityMeet = "Member Consulted During Meetings",
+    RGenEntityOp = "Opinion Considered During Meetings",
+    RGenEntityNeg = "Negotiated with other members",
+    RGenEntityViab = "Nogotiated or consulted on Viable Solutions",
+    RGenEntityDM = "Participated as Decision Maker",
+    CommunityParticipation = "Meaningful Participation in the AC")
 
 # Calculate the percentage of beneficiaries reporting meaningful participation (Total)
 CommunityParticipationTotal <- CommunityParticipation %>% 

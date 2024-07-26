@@ -46,6 +46,8 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
   mutate(TotalNonFoodIntExp = TotalNonFoodIntExp / 6) %>%
   # Convert add the total food and non food expenditure. Perform the calculation row wise
   mutate(TotalExp = rowSums(across(c(TotalFoodExp, TotalNonFoodIntExp, TotalNonFoodExp)))) %>% 
+  # Mutate FoodExpenditure Share by dividing the TotalFoodExp by the TotalExp
+  mutate(FoodExpenditureShare = round((TotalFoodExp / TotalExp)*100,2)) %>%
   # Convert the total expenditure to per capita values (Economic Capacity) i.e., by dividing by the number of household members
   mutate(TotalExpPerCapita = TotalExp / HHList) %>%
   # Convert the TotalExpPerCapita to USD
@@ -62,7 +64,32 @@ ECMENdata <- read_excel("data/FullHHRosterClean.xlsx") %>%
     TotalExpPerCapita >=  OldSMEB ~ "Able Survive",
     TotalExpPerCapita < OldSMEB ~ "Unable to Survive"
   )) %>% 
-  filter(TotalExpPerCapitaUSD < 500)
+  filter(TotalExpPerCapitaUSD < 500) %>% 
+  # Change character variables to factors
+  mutate(across(where(is.character), as.factor)) %>% 
+  # Insert Variable Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    ADMIN4Name = "Commune Name",
+    ACName = "Agriculture Cooperative Name",
+    HHID = "Household ID",
+    HHList = "Family Size",
+    HHBaseline = "Baseline vs New Member",
+    IDPoor = "ID Poor Status",
+    HHHSex = "Household Head Sex",
+    RespSex = "Respondent Sex",
+    HHHEthnicity = "Household Head Ethnicity",
+    HHHLanguage = "Household Head Language",
+    TotalFoodExp = "Total Household Food Expenditure",
+    TotalNonFoodExp = "Total Household Non Food Expenditure",
+    TotalNonFoodIntExp = "Total Household Non Food Intermediate Expenditure",
+    TotalExp = "Total Household Expenditure",
+    TotalExpPerCapita = "Total Household Expenditure Per Capita",
+    TotalExpPerCapitaUSD = "Total Household Expenditure Per Capita in USD",
+    FoodExpenditureShare = "Food Expenditure Share",
+    ECMEN = "Economic Capacity To Meet Essential Needs Status",
+    SurvivalECMEN = "Survival Economic Capacity To Meet Essential Needs Status"
+  )
 
 
 RiceProducedData <- read_excel("data/RiceProduced.xlsx") 
@@ -244,74 +271,6 @@ write.xlsx(ECMENIncRiceProduced, "report/ECMENIncRiceProduced.xlsx")
 
 ############################################################END OF INDICATOR CALCULATION########################################  
 
-## INDICATOR VISUALISATIONS
-  
-  HHHSexECMEN %>% 
-  ggplot(aes(ECMEN, Percentage)) +
-  geom_col(width = 0.5) + 
-  facet_wrap(~HHHSex) +
-  labs(title = "Female headed households are more likely to be unable to meet essential", 
-       x = "Economic Capacity To Meet Essential Needs", 
-       y = "Percentage of Households") +
-  # Add margins to the labs and the title of the graph
-  theme(text = element_text(family = "Times New Roman"),
-        axis.text.x = element_text(margin = margin(t = 20)),
-        axis.text.y = element_text(margin = margin(r = 20)),
-        axis.title.x = element_text(margin = margin(t = 20)),
-        axis.title.y = element_text(margin = margin(r = 20)),
-        plot.title = element_text(margin = margin(b = 30, t = 30),
-                                  color = "#2A93FC",
-                                  size = 16),
-        strip.text.x = element_text(margin = margin(b = 10, t = 10),
-                                    size = 16)) 
-
-subtitle_text <- "Number of households <span style='color:#00BFC4'>**Male**</span> headed and 
-<span style='color:#F8766D'>**Female**</span> headed" 
-  
-  # Select the facet wrap element and make it bigger
-  ECMENdata %>% 
-  filter(TotalExpPerCapitaUSD < 500) %>%
-    ggplot(aes(x = ACName, 
-               y = TotalExpPerCapitaUSD, 
-               fill = HHHSex)) +
-    geom_point(position = position_jitterdodge(), 
-               size = 3,
-               alpha = 0.75,
-               shape = 21) + 
-  geom_hline(yintercept = OldMEBUSD, 
-             linetype = "dashed", 
-             color = "red",
-             size = 1.5) +
-  geom_hline(yintercept = OldSMEBUSD, 
-             linetype = "dashed", 
-             color = "blue",
-             size = 1.5) +
-    theme_minimal(base_size = 14,
-                  base_family = "Times New Roman") + # Should Learn How to use different fonts
-    theme(plot.subtitle = ggtext::element_markdown(),
-          legend.position = "none") + 
-    labs(title = "Per Capita Expenditure",
-         x = "Agriculture Cooperative Name",
-         y = "Expenditure in USD",
-         fill = "Gender",
-         subtitle = subtitle_text)
-
-ECMENdata %>% 
-  ggplot(aes(HHHSex, ECMEN)) +
-  geom_count()
-
-ECMENdata %>%
-  filter(TotalExpPerCapitaUSD < 500) %>%
-  ggplot(aes(HHList, TotalExpPerCapitaUSD,
-             color = HHHSex)) +
-  geom_point(position = "jitter")
-  
-#####################################################################################################################
-
-ECMENdata %>% 
-  ggplot(aes(ECMEN, HHHEthnicity)) +
-  geom_col() +
-  labs(title = "Economic Capacity
 
 
 

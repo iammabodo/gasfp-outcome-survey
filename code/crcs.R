@@ -1,4 +1,6 @@
 library(tidyverse)
+library(openxlsx)
+library(labelled)
 
 ## Climate Resilience Capacity  Score (CRCS)
 
@@ -49,8 +51,33 @@ CRCSData <- read_excel("data/FullHHRosterClean.xlsx") %>%  #Input file path here
   mutate(AdaptiveCapacityCategory = case_when(
     AdaptiveCapacity < 33 ~ "Low",
     AdaptiveCapacity >= 33 & AdaptiveCapacity < 66 ~ "Medium",
-    AdaptiveCapacity >= 66 ~ "High"))
-
+    AdaptiveCapacity >= 66 ~ "High")) %>%
+  # Change character variables to factors
+  mutate(across(where(is.character), as.factor)) %>% 
+  # Include variable labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    ADMIN4Name = "Commune Name",
+    ACName = "Name of Agriculture Coorporative",
+    HHID = "Household ID",
+    HHList = "Family Size",
+    HHBaseline = "Household Baseline or New Members",
+    IDPoor = "ID Poor Status",
+    HHHSex = "Household Head Sex",
+    RespSex = "Respondent Sex",
+    HHHEthnicity = "Household Head Ethnicity",
+    HHHLanguage = "Household Head Language",
+    CRCSScore = "CRCS Score",
+    CRCSCategory = "CRCS Category, Low, Medium, High",
+    AnticipatoryCapacity = "Household Anticipatory Capacity",
+    AbsorptiveCapacity = "Household Absorptive Capacity",
+    TransformativeCapacity = "Household Transformative Capacity",
+    AdaptiveCapacity = "Household Adaptive Capacity",
+    AnticipatoryCapacityCategory = "Household Anticipatory Capacity Category, i.e. Low, Medium, High",
+    AbsorptiveCapacityCategory = "Household Absorptive Capacity Category, i.e. Low, Medium, High",
+    TransformativeCapacityCategory = "Household Transformative Capacity Category, i.e. Low, Medium, High",
+    AdaptiveCapacityCategory = "Household Adaptive Capacity Category, i.e. Low, Medium, High"
+  )
 
 ###################################################INDICATOR CALCULATION####################################################
 
@@ -185,8 +212,6 @@ CRCSIndicators <- bind_rows(AnticipatoryCapacity, AbsorptiveCapacity, Transforma
 # Write an excel file 
 write.xlsx(CRCSIndicators, "report/CRCSIndicators.xlsx")
 
-#############################################INDICATOR VISUALISATION####################################################
-CRCSData %>% 
-  ggplot(aes(x = CRCSCategory)) +
-  geom_bar() +
-  theme_bw()
+#############################################END OF CODE####################################################
+
+

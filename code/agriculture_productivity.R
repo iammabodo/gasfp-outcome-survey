@@ -8,6 +8,7 @@ library(labelled)
 library(expss)
 library(readxl)
 library(openxlsx)
+library(interactions)
 
 # Import first roster data. To be used for calculation of indicator 1. Households reporting increase in the production of rice and Income
 PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>% 
@@ -40,9 +41,11 @@ PSAMSRiceRoster <- read_excel("data/Roster_PSAMSRice_Cleaned_Numeric.xlsx") %>%
   # Join with the HHcharacteristics data
   left_join(HHFullDemographicRoster, by = "interview_key")
 
+# Small Roster Data for Calculation of Income from Rice Production
 SmallRiceRoster <- PSAMSRiceRoster %>% 
   filter(PSAMSRiceSell == "Yes") 
 
+# Lets remove Outliers from the data
 summary_stats <- SmallRiceRoster %>%
   group_by(interview_key) %>%
   mutate(TotalIncome = sum(Income, na.rm = TRUE)) %>%
@@ -58,24 +61,21 @@ summary_stats <- SmallRiceRoster %>%
     UpperBound = Q3 + 1.5 * IQR
   )
 
-SmallRiceRoster %>%
-  group_by(interview_key) %>%
-  mutate(TotalIncome = sum(Income, na.rm = TRUE)) %>%
-  ungroup() %>%
-  distinct(interview_key, .keep_all = TRUE) %>%
-  filter(TotalIncome >= summary_stats$LowerBound[1] & TotalIncome <= summary_stats$UpperBound[1]) %>%
-  summarise(
-    MeanIncome = mean(TotalIncome, na.rm = TRUE),
-    MedianIncome = median(TotalIncome, na.rm = TRUE),
-    Count = n()
-  ) %>%
-  mutate(MedianIncome = MedianIncome / 4100)
 
+## Calculate the average, median quantity of rice sold by the farmers, ethnicity and ricetype
+RiceSold <- SmallRiceRoster %>% 
+  group_by(HHHEthnicity, RiceType) %>% 
+  summarise(MedianQuantity = median(PSAMSRiceSellQuant, na.rm = TRUE),
+            AverageQuantity = mean(PSAMSRiceSellQuant, na.rm = TRUE),
+            Farmers = n()) %>% 
+  ungroup() %>% 
+  filter(!is.na(HHHEthnicity)) %>% 
+  #Convert these to metric tonnes
+  mutate(MedianQuantity = round((MedianQuantity / 1000),2),
+         AverageQuantity = round((AverageQuantity / 1000),2))
 
-SSDATA <- SmallRiceRoster %>%
-  group_by(interview_key) %>% 
-  filter(n()>1)
-
+#Write a xlsx file
+write.xlsx(RiceSold, "report/RiceSold.xlsx")
 
 
 # Import second roster data. Essential for the calculation of Post Harvest Loses
@@ -123,46 +123,57 @@ HHFullDemographicRoster <- read_excel("data/FullHHRosterClean.xlsx") %>%
 ## Calculate income from rice production. This is significantly different from the baseline calculation
 ## It gives a more realistic estimation of the income from rice production, as advised by the World Bank
 
-# RiceIncomeRoster <- SAMSRoster %>% 
-#   distinct(interview_key, RiceType, .keep_all = TRUE) %>% 
-#   select(interview_key, RiceType, total_production, PSAMSPHLCommQuant, PSAMSPHLCommArea, PSAMSNutCropIncr,
-#          PSAMSRiceSellQuant, PSAMSPHLCommArea_Unit, PSAMSRiceSellMN, PSAMSRiceInputsMN, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>%
-#   # Mutate rice revenue
-#   mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1100, total_production * 1200)) %>% 
-#   mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>%
-#   mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
-#   # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
-#   mutate(PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
-#          PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
-#   group_by(interview_key, RiceType) %>%
-#   mutate(PSAMSRiceRevenue = sum(PSAMSRiceRevenue, na.rm = TRUE)) %>%
-#   # Mutate PSAMSRiceIncome
-#   mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>% 
-#   # Change this income to USD
-#   mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) %>%
-#   # Round the income to 2 decimal places
-#   mutate(PSAMSRiceIncome = round(PSAMSRiceIncome, 2))
-# 
-# # Merge the HHFullAgricRoster with the RiceIncomeRoster. To be used for calculation of indicator 3. 
-# # Total household income from rice production
-# HHFullAgricRoster <- left_join(HHFullDemographicRoster, RiceIncomeRoster, by = "interview_key") %>% 
-#   drop_na(RiceType)
+RiceIncomeRoster <- SAMSRoster %>%
+  distinct(interview_key, RiceType, .keep_all = TRUE) %>%
+  select(interview_key, RiceType, total_production, PSAMSPHLCommQuant, PSAMSPHLCommArea, PSAMSNutCropIncr,
+         PSAMSRiceSellQuant, PSAMSPHLCommArea_Unit, PSAMSRiceSellMN, PSAMSRiceInputsMN, PSAMSPHLCommQntHand, PSAMSPHLCommQntLost) %>%
+  # Mutate rice revenue
+  mutate(PSAMSRiceRevenue = if_else(RiceType == "Non Organic Rice", total_production * 1100, total_production * 1200)) %>%
+  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Acre", PSAMSPHLCommArea * 0.01, PSAMSPHLCommArea)) %>%
+  mutate(PSAMSPHLCommArea = if_else(PSAMSPHLCommArea_Unit == "Square Meter", PSAMSPHLCommArea * 0.0001, PSAMSPHLCommArea)) %>%
+  # Mutate PSAMSPHLCommQntHand, PSAMSPHLCommQntLost to be numeric
+  mutate(PSAMSPHLCommQntHand = as.numeric(PSAMSPHLCommQntHand),
+         PSAMSPHLCommQntLost = as.numeric(PSAMSPHLCommQntLost)) %>%
+  group_by(interview_key, RiceType) %>%
+  mutate(PSAMSRiceRevenue = sum(PSAMSRiceRevenue, na.rm = TRUE)) %>%
+  # Mutate PSAMSRiceIncome
+  mutate(PSAMSRiceIncome = PSAMSRiceRevenue - PSAMSRiceInputsMN) %>%
+  # Change this income to USD
+  mutate(PSAMSRiceIncome = PSAMSRiceIncome / 4100) %>%
+  # Round the income to 2 decimal places
+  mutate(PSAMSRiceIncome = round(PSAMSRiceIncome, 2))
+
+# Merge the HHFullAgricRoster with the RiceIncomeRoster. To be used for calculation of indicator 3.
+# Total household income from rice production
+HHFullAgricRoster <- left_join(HHFullDemographicRoster, RiceIncomeRoster, by = "interview_key") %>%
+  drop_na(RiceType)
+
+Q1 <- quantile(HHFullAgricRoster$total_production, 0.25)
+Q3 <- quantile(HHFullAgricRoster$total_production, 0.75)
+IQR <- Q3 - Q1
+
+lower_bound <- Q1 - 1.5 * IQR
+upper_bound <- Q3 + 1.5 * IQR
+
+HHFullAgricRoster <- HHFullAgricRoster %>%
+  filter(total_production >= lower_bound & total_production <= upper_bound)
 
 ####################################ICOME FROM RICE PRODUCTION############################################
 # USE THIS SCRIPT TO CALCULATE THE INCOME FROM RICE PRODUCTION USING THE MORE REALISTIC WAY, IF AGREED UPON BY THE TEAM. OTHREWISE, USE THE OLD WAY
 # Mutate the variable  to indicate which rice types did the farmer produce (i.e., Organic, Non-Organic or Both)
 # This is not a requirement, but a necessity in case we want to see how income is different among these three groups
-# RiceProductionData <- HHFullAgricRoster %>%
-#   group_by(interview_key) %>%
-#   mutate(RiceProduced = case_when(
-#     any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
-#     all(RiceType == "Organic Rice") ~ "Organic Rice",
-#     all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
-#   )) %>%
-#   distinct(interview_key, .keep_all = TRUE) %>%
-#   select(interview_key, RiceProduced, RiceType)
-# 
-# write.xlsx(RiceProductionData, "data/RiceProduced.xlsx")
+# Determine the type of rice produced by the farmer
+RiceProductionData <- HHFullAgricRoster %>%
+  group_by(interview_key) %>%
+  mutate(RiceProduced = case_when(
+    any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
+    all(RiceType == "Organic Rice") ~ "Organic Rice",
+    all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
+  )) %>%
+  distinct(interview_key, .keep_all = TRUE) %>%
+  select(interview_key, RiceProduced, RiceType)
+
+write.xlsx(RiceProductionData, "data/RiceProduced.xlsx")
 # 
 # # Calculate average and median rice income for the total farmers (Version 1)
 # RiceIncome <- HHFullAgricRoster %>% 
@@ -238,10 +249,14 @@ PHLosses <- HHFullAgricRoster %>%
 
 # Merge with the household roster to get the disagregations
 
+Q1 <- quantile(data$value, 0.25)
+Q3 <- quantile(data$value, 0.75)
+IQR <- Q3 - Q1
+
 HHFullPHLAgricRoster <- HHFullAgricRoster %>% 
-  select(interview_key, ADMIN4Name, ACName, HHBaseline, RiceType, IDPoor, HHHSex, RespSex, HHHEthnicity,) %>% 
-  left_join(PHLosses, by = c("interview_key", "RiceType", "HHHSex", "RespSex", "HHHEthnicity", "IDPoor")) %>% 
-  left_join(data, by = c("interview_key", "RiceType")) %>% 
+  select(interview_key, ADMIN4Name, ACName, HHBaseline, RiceType, IDPoor, HHHSex, RespSex, HHHEthnicity) %>% 
+  left_join(PHLosses, by = c("interview_key", "RiceType", "HHBaseline", "HHHSex", "RespSex", "HHHEthnicity", "IDPoor", "ADMIN4Name", "ACName")) %>% 
+  left_join(RiceProductionData, by = c("interview_key", "RiceType")) %>% 
   drop_na(RiceType) %>%
   distinct(interview_key, .keep_all = TRUE)
 
@@ -355,10 +370,11 @@ IncProduction <- bind_rows(TotalIncProduction, GenderIncProduction, EthnicityInc
 write.xlsx(IncProduction, "report/IncProduction.xlsx")
 
 #############################################RICE PRODUCTION####################################################
-# Calculate the total rice production per hectare
+# Calculate the average rice production per hectare
 ProductivityByRiceType <- HHFullAgricRoster %>% 
+  mutate(HectRiceProduction = total_production / PSAMSPHLCommArea) %>%
   group_by(RiceType) %>% 
-  summarise(TotalRiceProduction = mean(total_production, na.rm = TRUE)) %>% 
+  summarise(TotalRiceProduction = mean(HectRiceProduction, na.rm = TRUE)) %>% 
   mutate(TotalRiceProduction = round(TotalRiceProduction, 2))
 
 
@@ -369,10 +385,29 @@ ProductivityByGender <- HHFullAgricRoster %>%
 
 ProductivityByEthnicity <- HHFullAgricRoster %>% 
   mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>%
+  group_by(RiceType, HHHEthnicity) %>%
+  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE),
+            n = n()) 
+
+Productivity <- HHFullAgricRoster %>% 
+  mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>%
   group_by(RiceType) %>%
-  summarise(AvgRiceProduction = mean(AvgRiceProduction, na.rm = TRUE)) 
+  summarise(TotalRiceProduction = mean(AvgRiceProduction, na.rm = TRUE)) %>% 
+  mutate(TotalRiceProduction = round(TotalRiceProduction, 2))
 
+# Productivity by ADmin4Name
+ProductivityByAdmin4Name <- HHFullAgricRoster %>% 
+  mutate(AvgRiceProduction = total_production / PSAMSPHLCommArea) %>%
+  group_by(ACName, RiceType, HHHEthnicity) %>% 
+  summarise(TotalRiceProduction = mean(AvgRiceProduction, na.rm = TRUE),
+            n = n()) %>% 
+  mutate(TotalRiceProduction = round(TotalRiceProduction, 2)) %>% 
+  filter(RiceType == "Organic Rice") %>% 
+  filter(!is.na(HHHEthnicity))
 
+HHFullAgricRoster %>% 
+  count(ACName, RiceType, HHHEthnicity) %>%
+  filter(HHHEthnicity == "Ethnic Minority")
 
 ##############################################END OF SCRIPT####################################################
 
@@ -425,7 +460,7 @@ PSAMSRiceIncome <- PSAMSRiceRoster %>%
   summarise(TotalRiceIncome = sum(Income, na.rm = TRUE)) %>% 
   ungroup() %>%
   # Filtering outliers
-  filter(TotalRiceIncome >= RiceIncomeoutliers_summary_stats$LowerBound[1] & TotalRiceIncome <= RiceIncomeoutliers_summary_stats$UpperBound[1]) %>%
+  #filter(TotalRiceIncome >= RiceIncomeoutliers_summary_stats$LowerBound[1] & TotalRiceIncome <= RiceIncomeoutliers_summary_stats$UpperBound[1]) %>%
   # Merge with the PSAMSRiceRoster to get the rice type
   left_join(HHFullDemographicRoster, by = "interview_key") %>%
   left_join(RiceProductionData, by = "interview_key") %>%
@@ -467,6 +502,17 @@ OldRiceIncomeByRiceProduced <- PSAMSRiceIncome %>%
   rename(Disagregation = RiceProduced) %>% 
   mutate(MedianRiceIncome = MedianRiceIncome / 4100)
 
+OldRiceIncomeByRiceProducedHHE <- PSAMSRiceIncome %>% 
+  filter(!is.na(RiceProduced)) %>%
+  group_by(RiceProduced, HHHEthnicity) %>% 
+  summarise(MedianRiceIncome = median(TotalRiceIncome, na.rm = TRUE),
+            n = n()) %>% 
+  mutate(MedianRiceIncome = round(MedianRiceIncome, 2)) %>% 
+  rename(Disagregation = RiceProduced) %>% 
+  mutate(MedianRiceIncome = MedianRiceIncome / 4100)
+
+write.xlsx(OldRiceIncomeByRiceProducedHHE, "report/OldRiceIncomeByRiceProducedHHE.xlsx")
+
 # Calculate the total rice income by finding the median of the TotalRiceIncome, after grouping by IDPoor
 OldRiceIncomeByIDPoor <- PSAMSRiceIncome %>% 
   filter(!is.na(IDPoor)) %>%
@@ -503,76 +549,69 @@ RicePrices <- PSAMSRiceRoster %>%
             minP= min(as.numeric(PSAMSRiceSellMN), na.rm = T), 
             maxP = max(as.numeric(PSAMSRiceSellMN), na.rm = T), 
             n = n())
+
+
 write.xlsx(RicePrices, "report/RicePrices.xlsx")
 
-RiceProductionData <- HHFullAgricRoster %>%
-  group_by(interview_key) %>%
-  mutate(RiceProduced = case_when(
-    any(RiceType == "Organic Rice") & any(RiceType == "Non Organic Rice") ~ "Both",
-    all(RiceType == "Organic Rice") ~ "Organic Rice",
-    all(RiceType == "Non Organic Rice") ~ "Non Organic Rice"
-  )) %>%
-  distinct(interview_key, .keep_all = TRUE) %>%
-  select(interview_key, RiceProduced, RiceType)
+#################################################################ESTIMATING THE RELATIONSHIP BETWEEN HHEXP AND RICE INCOME############################################
+
+# Modelling the relationship between rice income and total expenditure per capita. It is not a requirement though
+# sub-setting the data to include the household expenditure variables
 
 ShortECMEN <- ECMENdata %>%
   select(interview_key, TotalFoodExp, TotalNonFoodExp, TotalNonFoodIntExp, TotalExp, TotalExpPerCapita, TotalExpPerCapitaUSD) %>%
   distinct(interview_key, .keep_all = TRUE)
 
+# Calculating the outliers for the TotalExp variable 
+
+ShortECMENoutliers_summary_stats <- ShortECMEN %>%
+  summarise(
+    Q1 = quantile(TotalExp, 0.25, na.rm = TRUE),
+    Q3 = quantile(TotalExp, 0.75, na.rm = TRUE)
+  ) %>%
+  mutate(
+    IQR = Q3 - Q1,
+    LowerBound = Q1 - 1.5 * IQR,
+    UpperBound = Q3 + 1.5 * IQR
+  )
+
 
 ECMENRiceProducers <- PSAMSRiceIncome %>% 
   left_join(RiceProductionData, by = c("interview_key", "RiceType", "RiceProduced")) %>%
+  # filter ECMEN outliers
   left_join(ShortECMEN, by = "interview_key") %>% 
+  filter(TotalExp >= ShortECMENoutliers_summary_stats$LowerBound[1] & TotalExp <= ShortECMENoutliers_summary_stats$UpperBound[1]) %>%
   # Mutate character variables to factor variables
-  mutate_if(is.character, as.factor)
+  mutate_if(is.character, as.factor) %>%
+  mutate(TotalRiceIncomeUSD = TotalRiceIncome / 4100,
+         TotalFoodExpUSD = TotalFoodExp / 4100,
+         TotalExp = TotalExp/4100) %>% 
+  filter(!is.na(RiceProduced)) %>% 
+  filter(!is.na(HHHEthnicity)) %>%
+  filter(RiceProduced != "Both") %>%
+  # Calculate the total rice income per capita and household food expenditure per capita
+  mutate(TotalRiceIncomePerCapitaUSD = TotalRiceIncomeUSD / HHList,
+         TotalFoodExpPerCapitaUSD = TotalFoodExpUSD / HHList) %>% 
+  # Calculate total food expenditure per capita per year
+  mutate(TotalFoodExpPerCapitaUSDYr = TotalFoodExpPerCapitaUSD * 12) %>% 
+  # Calculate rice income per month
+  mutate(TotalRiceIncomePerCapitaUSDM = TotalRiceIncomePerCapitaUSD / 12) %>% 
+  # Calculate food expenditure share
+  mutate(FoodExpShare = round((TotalFoodExp / TotalExp) * 100, 2))
 
+# Basic / Naive Regression Model
+model <- lm(TotalExpUSD ~ TotalRiceIncomeUSD + HHHEthnicity + HHHSex + RiceProduced, data = ECMENRiceProducers)
 
-model <- lm(TotalExp ~ TotalRiceIncome + HHHEthnicity + HHHSex +RiceProduced, data = ECMENRiceProducers)
+# Interaction Term Model (More meaningful model)
 
-model_interaction <- lm(TotalExp ~ TotalRiceIncome + RiceProduced + TotalRiceIncome * RiceProduced + HHHSex, data = ECMENRiceProducers)
+model_interaction <- lm(TotalExpPerCapitaUSD ~  TotalRiceIncomePerCapitaUSDM*RiceProduced + HHHEthnicity + HHHSex, data = ECMENRiceProducers)
 
 summary(model)
 
 summary(model_interaction)
 
 
-# Create a dataset for predictions
-pred_data <- expand.grid(
-  TotalRiceIncome = seq(min(ECMENRiceProducers$TotalRiceIncome), max(ECMENRiceProducers$TotalRiceIncome), length.out = 100),
-  RiceProduced = c("Non Organic Rice", "Organic Rice"),
-  HHHSex = c("Male", "Female")
-)
-
-# Predict values based on the model
-pred_data$TotalExp <- predict(model_interaction, newdata = pred_data)
-
-# Plot the main effects and interactions
-p <- ggplot(pred_data, aes(x = TotalRiceIncome, y = TotalExp, color = RiceProduced, linetype = HHHSex)) +
-  geom_line(linewidth = 1) +
-  labs(
-    title = "Interaction Effects on Household Expenditure",
-    x = "Total Rice Income",
-    y = "Total Household Expenditure",
-    color = "Type of Rice Produced",
-    linetype = "Household Head Gender"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
-    axis.title = element_text(size = 14),
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12)
-  )
-
-# Highlight significant interactions
-p_highlight <- p +
-  geom_point(data = ECMENRiceProducers, aes(x = TotalRiceIncome, y = TotalExp), alpha = 0.5) +
-  geom_smooth(method = "lm", se = FALSE)
-
-# Print the plot
-print(p_highlight)
-
-
+####################################################################################################################################################
 
 
 

@@ -6,6 +6,7 @@ library(janitor)
 library(gt)
 library(openxlsx)
 library(forcats)
+library(labeled)
 
     
 # Import the data
@@ -46,6 +47,36 @@ EconomicEmpowermentData <- read_excel("data/WFP_GASFP_WO8_Cleaned_Numeric.xlsx")
   mutate(EconomicEmpowerment = case_when(
     RFinancSit == "Improved" & Ladder1YearAgo <= LadderToday ~ "Economically Empowered",
     TRUE ~ "Not Economically Empowered")) %>% 
+  # Mutate the step for LadderToday and Ladder1YearAgo to have meaningful labels
+  mutate(LadderToday = case_when(
+    LadderToday == 1 ~ "Step 1 - Almost no power or freedom to make decisions",
+    LadderToday == 2 ~ "Step 2 - Only small amount of power and freedom",
+    LadderToday == 3 ~ "Step 3 - Power and freedom to make some major economic decisions",
+    LadderToday == 4 ~ "Step 4 - Power and freedom to make many major economic decisions",
+    LadderToday == 5 ~ "Step 5 - Power and freedom to make most/all major economic decisions"),
+    Ladder1YearAgo = case_when(
+    Ladder1YearAgo == 1 ~ "Step 1 - Almost no power or freedom to make decisions",
+    Ladder1YearAgo == 2 ~ "Step 2 - Only small amount of power and freedom",
+    Ladder1YearAgo == 3 ~ "Step 3 - Power and freedom to make some major economic decisions",
+    Ladder1YearAgo == 4 ~ "Step 4 - Power and freedom to make many major economic decisions",
+    Ladder1YearAgo == 5 ~ "Step 5 - Power and freedom to make most/all major economic decisions")) %>%
+  # Insert Labels
+  set_variable_labels(
+    interview_key = "Interview Key",
+    HHID = "Household ID",
+    Sex = "Respondent Sex",
+    AGE_Resp = "Respondent Age",
+    HHHEthnicity = "Household Head Ethnicity",
+    HHHLanguage = "Household Head Language",
+    IDPoor = "IDPoor Status",
+    HHBaseline = "Household Baseline/New Membership Status",
+    HHGenMembers = "Number of Household Members",
+    RFinancSit = "Respondent Financial Situation",
+    RFinancSitRsn = "Reason for Respondent Financial Situation",
+    LadderToday = "Level of Power and Freedom to Make Economic Decisions Today",
+    Ladder1YearAgo = "Level of Power and Freedom to Make Economic Decisions 1 Year Ago",
+    LadderReason = "Reason for Change in Level of Power and Freedom to Make Economic Decisions"
+  ) %>% 
   # Change all character variables to factors
   mutate_if(is.character, as.factor) %>% 
   # Drop NAs
@@ -197,27 +228,29 @@ write.xlsx(GenderEconomicEmpGapFull, "report/GenderEconomicEmpGapFull.xlsx")
 
 #####################################################INDICATOR CALCULATION##################################################
 
-GenderEconomicEmpGapFull %>%
-  filter(EconomicEmpowerment == "Economically Empowered") %>%
-  fct_reorder(EconomicEmpowerment, Percentage) %>% 
-  ggplot(aes(x = EconomicEmpowerment, y = Percentage)) +
-  geom_col(aes(fill = Disagregation), position = position_dodge(width = 0.9), width = 0.5) +
-  geom_text(aes(label = scales::percent(Percentage / 100), 
-                group = Disagregation), 
-            position = position_dodge(width = 0.9), 
-            vjust = 1.5, 
-            color = "white") +
-  scale_fill_brewer(palette = "Set3", name = "Disaggregation") +
-  labs(title = "Gender Economic Empowerment Breakdown in Kho Nhek District",
-       x = "Economic Empowerment",
-       y = "Percentage") +
-  theme_minimal() +
-  theme(axis.text.x = element_blank(),
-        plot.title = element_text(hjust = 0.5),
-        legend.position = "none")
+# Calculate the percentage of people reporting increase in income
+EconomicEmpowermentData %>%
+  filter(HHHEthnicity != "Foreigners") %>%
+  group_by(Ladder1YearAgo) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100)
   
   
-  
+# Calculate the percentage of people reporting increase in income
+EconomicEmpowermentData %>%
+  filter(HHHEthnicity == "Ethnic Minority") %>%
+  group_by(RFinancSit) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
+EconomicEmpowermentData %>%
+  filter(HHHEthnicity != "Foreigners") %>%
+  group_by(LadderToday) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100)
 
-
+EconomicEmpowermentData %>%
+  filter(HHHEthnicity == "Ethnic Majority") %>%
+  group_by(RFinancSit) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = (Count / sum(Count)) * 100)

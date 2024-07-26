@@ -26,9 +26,18 @@ FIESData <- FullFIESData %>%
   # Select only the FIES variables
   select(starts_with("FIES"),HHWeight, IndWeight, HHHSex, HHHEthnicity)
 
+FIESDataIDPoor <- FullFIESData %>% 
+  #Remove outliers
+  # find_outliers() %>%
+  # Select only the FIES variables
+  select(starts_with("FIES"),HHWeight, IndWeight, HHHEthnicity, IDPoor)
+
 
 # Save the FIESData in the data folder
 write_csv(FIESData, "data/FIESData.csv")
+
+# Save the FIESDataIDPoor in the data folder
+write_csv(FIESDataIDPoor, "data/FIESDataIDPoor.csv")
 
 # Run The RM.weights function on the FIESData
 FIESData <- RM.w(FIESData, HHWeight, IndWeight, HHHSex, HHHEthnicity, "FIES")
